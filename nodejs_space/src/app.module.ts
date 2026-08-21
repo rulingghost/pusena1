@@ -18,8 +18,11 @@ import { AdminModule } from './admin/admin.module';
 import { ArticlesModule } from './articles/articles.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { MediaModule } from './media/media.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
@@ -41,6 +44,7 @@ import { MediaModule } from './media/media.module';
     MediaModule,
   ],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
