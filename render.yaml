@@ -8,7 +8,7 @@ services:
     runtime: node
     plan: free
     rootDir: nodejs_space
-    buildCommand: yarn install --immutable && npx prisma generate && yarn build
+    buildCommand: corepack enable && yarn install --immutable && npx prisma generate && yarn build
     startCommand: yarn start:prod
     healthCheckPath: /health
     envVars:
