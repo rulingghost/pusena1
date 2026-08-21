@@ -8,8 +8,9 @@ services:
     runtime: node
     plan: free
     rootDir: nodejs_space
-    buildCommand: corepack enable && yarn install --immutable && npx prisma generate && yarn build
-    startCommand: yarn start:prod
+    # corepack varsayilan olarak /usr/bin altina yazmaya calisir, Render'da orasi salt okunur.
+    buildCommand: mkdir -p $HOME/.bin && corepack enable --install-directory $HOME/.bin && export PATH="$HOME/.bin:$PATH" && yarn install --immutable && npx prisma generate && yarn build
+    startCommand: node dist/main
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV

@@ -88,7 +88,7 @@
     "testEnvironment": "node"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=18.18.0 <23.0.0"
   },
   "packageManager": "yarn@4.13.0",
   "prisma": {
