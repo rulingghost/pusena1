@@ -1,0 +1,5 @@
+# Enable Edge Function without Supabase Auth JWT (we verify Pusena Nest JWT ourselves).
+project_id = "cxfpfztwxpeziaezdoom"
+
+[functions.assistant-chat]
+verify_jwt = false

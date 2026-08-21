@@ -1,0 +1,32 @@
+# Render Blueprint — Pusena API
+# Kullanım: Render > New > Blueprint > bu repoyu seç.
+# Gizli değerler (DATABASE_URL, JWT_SECRET, GROQ_API_KEY ...) panelden girilir,
+# buraya yazılmaz.
+services:
+  - type: web
+    name: pusena-api
+    runtime: node
+    plan: free
+    rootDir: nodejs_space
+    buildCommand: yarn install --immutable && npx prisma generate && yarn build
+    startCommand: yarn start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ENABLE_SWAGGER
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false

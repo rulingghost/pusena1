@@ -1,0 +1,472 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String?
+  name              String
+  nickname          String?
+  biography         String?
+  avatarUrl         String?
+  partnerCode       String?   @unique
+  pairedUserId      String?
+  googleId          String?   @unique
+  hasCompletedSetup Boolean   @default(false)
+  isAdmin           Boolean   @default(false)
+  gender            String?   // female, male, other
+  language          String    @default("tr") // tr, en
+  birthYear         Int?
+  heightCm          Int?
+  weightKg          Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  settings       UserSettings?
+  pregnancy      Pregnancy?
+  periodCycles   PeriodCycle[]
+  periodDays     PeriodDay[]
+  symptoms       Symptom[]
+  relationship   Relationship?
+  specialDates   SpecialDate[]
+  posts          CommunityPost[]
+  postLikes      PostLike[]
+  savedPosts     SavedPost[]
+  savedArticles  SavedArticle[]
+  comments       Comment[]
+  reports        Report[]
+  blockedUsers   BlockedUser[] @relation("blocker")
+  blockedBy      BlockedUser[] @relation("blocked")
+  following      Follow[]      @relation("follower")
+  followers      Follow[]      @relation("following")
+  memories       CoupleMemory[]
+  questionAnswers CoupleQuestionAnswer[]
+  assessment     FertilityAssessment?
+  notifications  Notification[]
+  refreshTokens  RefreshToken[]
+  partnerLocation PartnerLocation?
+  sentNudges      PartnerNudge[]    @relation("nudgeFrom")
+  receivedNudges  PartnerNudge[]    @relation("nudgeTo")
+  coupleMessages  CoupleMessage[]
+  mediaObjects    MediaObject[]
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model SavedArticle {
+  id        String   @id @default(uuid())
+  userId    String
+  articleId String
+  kind      String   @default("article") // article, faq, myth
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId])
+}
+
+model CoupleMemory {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  date        DateTime
+  category    String   @default("Anı")
+  emoji       String   @default("✨")
+  notes       String?
+  imageUrls   String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date(sort: Desc)])
+}
+
+model CoupleQuestionAnswer {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  answer     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+}
+
+model FertilityAssessment {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  goal              String?  // ttc, track, natural
+  tryingDuration    String?
+  cycleRegularity   String?
+  contraceptionPast String?
+  healthConditions  String[] @default([])
+  heightCm          Int?
+  weightKg          Int?
+  age               Int?
+  answers           Json?
+  score             Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserSettings {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  activeModules        String[] @default([])
+  pregnancyWeekly      Boolean  @default(true)
+  pregnancyTips        Boolean  @default(true)
+  periodReminder       Boolean  @default(true)
+  fertilityAlert       Boolean  @default(true)
+  specialDateReminder  Boolean  @default(true)
+  communityLikes       Boolean  @default(true)
+  communityComments    Boolean  @default(true)
+  medicationReminder   Boolean  @default(true)
+  countdownReminder    Boolean  @default(true)
+  reminderOffsets      Int[]    @default([30, 7, 3, 1])
+  profilePublic        Boolean  @default(true)
+  showCommunityPosts   Boolean  @default(true)
+  allowFollow          Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Pregnancy {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  lastMenstrualPeriod DateTime
+  dueDate             DateTime
+  babyName            String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PregnancyWeekContent {
+  id               String   @id @default(uuid())
+  weekNumber       Int      @unique
+  title            String
+  babyDevelopment  String
+  babySize         String
+  babyWeight       String
+  organDevelopment String
+  motherChanges    String
+  letterFromBaby   String?
+  commonSymptoms   String[]
+  tips             String[]
+  warnings         String[]
+}
+
+model DeletedAccount {
+  id        String   @id @default(uuid())
+  email     String
+  name      String
+  reason    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+}
+
+model BabyName {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  gender    String   // girl, boy, unisex
+  meaning   String
+  origin    String   // Türkçe, Arapça, Farsça, vb.
+  isPopular Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([gender])
+}
+
+model PeriodCycle {
+  id           String    @id @default(uuid())
+  userId       String
+  startDate    DateTime
+  endDate      DateTime?
+  cycleLength  Int
+  periodLength Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days PeriodDay[]
+
+  @@index([userId, startDate(sort: Desc)])
+}
+
+model PeriodDay {
+  id        String   @id @default(uuid())
+  userId    String
+  cycleId   String
+  date      DateTime
+  flowLevel Int
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle PeriodCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model Symptom {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime
+  type      String
+  severity  Int
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model SymptomType {
+  id           String @id @default(uuid())
+  category     String
+  name         String @unique
+  displayOrder Int
+}
+
+model Relationship {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  partnerName String
+  startDate   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialDates SpecialDate[]
+}
+
+model SpecialDate {
+  id             String   @id @default(uuid())
+  userId         String
+  relationshipId String
+  title          String
+  date           DateTime
+  description    String?
+  isRecurring    Boolean  @default(false)
+  reminderDays       Int?
+  reminderDaysList   Int[]    @default([])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relationship Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([relationshipId])
+}
+
+model CommunityPost {
+  id            String   @id @default(uuid())
+  authorId      String
+  content       String
+  category      String
+  pregnancyWeek Int?
+  isEdited      Boolean  @default(false)
+  likesCount    Int      @default(0)
+  commentsCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes      PostLike[]
+  savedBy    SavedPost[]
+  comments   Comment[]
+  reports    Report[]
+
+  @@index([authorId])
+  @@index([category])
+  @@index([createdAt(sort: Desc)])
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String
+  postId     String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  reporter User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post     CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, postId])
+}
+
+model BlockedUser {
+  id            String   @id @default(uuid())
+  userId        String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+
+  user    User @relation("blocker", fields: [userId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, blockedUserId])
+}
+
+model Notification {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String
+  title         String
+  body          String
+  module        String
+  referenceId   String?
+  isRead        Boolean  @default(false)
+  actionType    String?  // "period_confirm" etc
+  actionPayload String?  // JSON payload for the action
+  actionDone    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+}
+
+model PartnerLocation {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  latitude        Float
+  longitude       Float
+  accuracy        Float?
+  sharingEnabled  Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PartnerNudge {
+  id         String   @id @default(uuid())
+  fromUserId String
+  toUserId   String
+  type       String
+  status     String   @default("open")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  from User @relation("nudgeFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   User @relation("nudgeTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@index([fromUserId, createdAt(sort: Desc)])
+}
+
+model CoupleMessage {
+  id        String   @id @default(uuid())
+  pairKey   String
+  senderId  String
+  body      String
+  kind      String   @default("chat")
+  nudgeId   String?
+  createdAt DateTime @default(now())
+
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([pairKey, createdAt])
+}
+
+/// Server-only vault. Never expose via REST. Nest loads these into process.env at boot.
+model AppSecret {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// User photos stored in Supabase Postgres (not in the mobile binary, not as base64 in profile rows).
+model MediaObject {
+  id        String   @id @default(uuid())
+  userId    String
+  kind      String
+  mimeType  String
+  bytes     Bytes
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+}
