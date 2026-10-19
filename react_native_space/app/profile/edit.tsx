@@ -22,7 +22,7 @@ export default function EditProfileScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
   const updateMutation = useUsersControllerUpdateProfile();
   const [name, setName] = useState(user?.name ?? '');
   const [nickname, setNickname] = useState(user?.nickname ?? '');
@@ -47,7 +47,7 @@ export default function EditProfileScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5,
+        quality: 0.45,
         base64: true,
       });
 
@@ -90,21 +90,30 @@ export default function EditProfileScreen() {
       name: name.trim(),
       nickname: nickname.trim() || undefined,
       biography: biography.trim() || undefined,
-      avatarUrl: avatarUrl ?? undefined,
       gender,
       ...(validYear ? { birthYear: parsedYear } : {}),
     };
+    if (avatarUrl === null) payload.avatarUrl = null;
+    else if (avatarUrl?.startsWith('data:')) payload.avatarUrl = avatarUrl;
     updateMutation.mutate(
       { data: payload },
       {
-        onSuccess: () => {
+        onSuccess: (saved) => {
+          const nextAvatar = (saved as { avatarUrl?: string | null } | undefined)?.avatarUrl ?? avatarUrl;
+          updateUser({
+            name: name.trim(),
+            nickname: nickname.trim() || undefined,
+            biography: biography.trim() || undefined,
+            avatarUrl: nextAvatar ?? undefined,
+            gender,
+          } as any);
           refreshUser();
           queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
           queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-          Alert.alert('Başarılı ✨', 'Profiliniz güncellendi.');
+          Alert.alert('Kaydedildi', 'Profiliniz güncellendi.');
           router.back();
         },
-        onError: () => Alert.alert('Hata', 'Güncelleme başarısız.'),
+        onError: () => Alert.alert('Fotoğraf kaydedilemedi', 'Görsel 2.5 MB altında JPEG/PNG olmalı. Tekrar deneyin.'),
       }
     );
   };

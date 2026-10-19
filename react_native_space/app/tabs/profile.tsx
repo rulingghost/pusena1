@@ -42,15 +42,15 @@ export default function ProfileScreen() {
       title: 'Kullan',
       color: Colors.primary,
       items: [
-        { icon: 'people', label: 'Partner', subtitle: 'Eşleşme, sohbet, konum', route: '/tabs/story', color: Colors.relationship },
+        { icon: 'people', label: 'Partner', route: '/tabs/story', color: Colors.relationship },
         ...(!male && modules.includes('period')
-          ? [{ icon: 'calendar-outline' as const, label: 'Döngü takvimi', subtitle: 'Regl, semptom, geçmiş', route: '/period', color: Colors.floPink }]
+          ? [{ icon: 'calendar-outline' as const, label: 'Döngü', route: '/period', color: Colors.floPink }]
           : []),
         ...(!male && modules.includes('pregnancy')
-          ? [{ icon: 'happy-outline' as const, label: 'Gebelik takibi', subtitle: 'Hafta, tekme, kasılma', route: '/pregnancy', color: Colors.pregnancy }]
+          ? [{ icon: 'happy-outline' as const, label: 'Gebelik', route: '/pregnancy', color: Colors.pregnancy }]
           : []),
-        { icon: 'chatbubble-ellipses-outline', label: 'Asistan', subtitle: 'Sorularınız için', route: '/tabs/messages', color: Colors.floTeal },
-        { icon: 'document-text-outline', label: 'Sağlık özeti', subtitle: 'Doktor için kayıtlar', route: '/profile/health-report', color: Colors.floPurple },
+        { icon: 'chatbubble-ellipses-outline', label: 'Asistan', route: '/tabs/messages', color: Colors.floTeal },
+        { icon: 'document-text-outline', label: 'Sağlık özeti', route: '/profile/health-report', color: Colors.floPurple },
       ],
     },
     {
@@ -59,11 +59,11 @@ export default function ProfileScreen() {
       color: '#6B7280',
       items: [
         { icon: 'person-outline', label: 'Profili düzenle', route: '/profile/edit' },
-        { icon: 'apps-outline', label: 'Modüller', subtitle: 'Regl, gebelik, ilişki', route: '/setup', color: Colors.primary },
+        { icon: 'apps-outline', label: 'Modüller', route: '/setup', color: Colors.primary },
         { icon: 'notifications-outline', label: 'Bildirimler', route: '/profile/notification-settings', color: '#F59E0B' },
         { icon: 'eye-outline', label: 'Gizlilik', route: '/profile/privacy-settings', color: '#6366F1' },
         { icon: 'language-outline', label: 'Dil', route: '/profile/language', color: '#0EA5E9' },
-        { icon: 'lock-closed-outline', label: 'Şifre ve hesap', route: '/profile/account-settings' },
+        { icon: 'lock-closed-outline', label: 'Hesap', route: '/profile/account-settings' },
       ],
     },
   ];

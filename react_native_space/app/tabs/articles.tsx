@@ -42,18 +42,18 @@ interface ArticleItem {
 
 const DEFAULT_CATEGORIES = [
   { id: 'all', name: 'Tümü' },
-  { id: 'cycle', name: 'Döngü & Hormonlar' },
-  { id: 'pregnancy', name: 'Hamilelik & Doğum' },
-  { id: 'fertility', name: 'Doğurganlık & Ovülasyon' },
-  { id: 'wellness', name: 'Beslenme & Yaşam' },
-  { id: 'mood', name: 'Ruh Hali & Zihin' },
+  { id: 'cycle', name: 'Döngü' },
+  { id: 'pregnancy', name: 'Gebelik' },
+  { id: 'fertility', name: 'Doğurganlık' },
+  { id: 'wellness', name: 'Yaşam' },
+  { id: 'mood', name: 'Ruh hali' },
 ];
 
 const FALLBACK_ARTICLES: ArticleItem[] = [
   {
     id: 'art-1',
     title: 'Foliküler Evrede Bedeninizde Neler Değişir?',
-    subtitle: 'Östrojenin yükselişi, artan enerji ve cilt parlaklığının sırrı',
+    subtitle: 'Foliküler evre regl ile başlar; östrojen yavaş yükselir',
     category: 'cycle',
     categoryName: 'Döngü & Hormonlar',
     author: 'Dr. Zeynep Kaya',
@@ -61,12 +61,12 @@ const FALLBACK_ARTICLES: ArticleItem[] = [
     readTime: '4 dk',
     hasAudio: true,
     audioDuration: '5:20',
-    summary: 'Regl bittikten sonra başlayan foliküler evrede östrojen hormonu hızla artarak zindelik ve yaratıcılığı zirveye taşır.',
+    summary: 'Foliküler evre adetin ilk gününde başlar ve yumurtlamaya kadar sürer. Enerji artışı genelde kanama bittikten sonra hissedilir.',
     content: [
-      'Adet kanamasının ilk gününden ovülasyona kadar olan süre foliküler evre olarak adlandırılır.',
-      'Bu dönemde hipofiz bezinden salgılanan FSH (Folikül Uyarıcı Hormon), yumurtalıklarda yeni bir yumurtanın olgunlaşmasını tetikler.',
-      'Östrojen seviyeleri yükseldikçe enerjiniz, motivasyonunuz ve odaklanma yeteneğiniz artar. Beyindeki dopamin ve serotonin aktivitesi desteklenir.',
-      'Beslenme Tavsiyesi: Vücudun artan metabolik hızını desteklemek için yeşil yapraklı sebzeler, fermente gıdalar ve avokado gibi sağlıklı yağları tüketmek harika sonuç verir.'
+      'Foliküler evre, adetin 1. gününden yumurtlamaya kadar sürer. Regl bu evrenin dışına düşmez.',
+      'FSH bir folikülün olgunlaşmasını sağlar. Kanama bittikten sonra östrojen daha belirgin yükselir.',
+      'Birçok kişide enerji ve odaklanma toparlanır; bu bir kural değil, sık görülen bir eğilimdir.',
+      'Yeşil yapraklılar ve protein yeterlidir. Tek bir besin döngüyü değiştirmez. Şikayetiniz varsa hekime danışın.',
     ],
     tags: ['Foliküler Evre', 'Östrojen', 'Enerji', 'Hormonlar'],
     reviewedBy: 'Tıp Kurulu Onaylı • Dr. Zeynep Kaya',
@@ -240,14 +240,8 @@ export default function ArticlesScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={[styles.screenTitle, { color: colors.text }]}>Sağlık Kütüphanesi</Text>
-            <Text style={[styles.screenSubtitle, { color: colors.textMuted }]}>
-              Uzman hekim ve terapistlerce hazırlanan rehberler
-            </Text>
-          </View>
-          <View style={[styles.badgePill, { backgroundColor: Colors.floPinkLight }]}>
-            <Ionicons name="shield-checkmark" size={14} color={Colors.floPink} />
-            <Text style={[styles.badgeText, { color: Colors.floPink }]}>Tıp Onaylı</Text>
+            <Text style={[styles.screenTitle, { color: colors.text }]}>Rehber</Text>
+            <Text style={[styles.screenSubtitle, { color: colors.textMuted }]}>Kısa okumalar</Text>
           </View>
         </View>
 
@@ -327,8 +321,8 @@ export default function ArticlesScreen() {
               <Ionicons name="help-buoy" size={20} color={Colors.floPink} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.quickResTitle, { color: colors.text }]}>Uzman SSS & Mitler 📚</Text>
-              <Text style={[styles.quickResSub, { color: colors.textMuted }]}>Doktor onaylı 30+ soru-cevap</Text>
+              <Text style={[styles.quickResTitle, { color: colors.text }]}>SSS</Text>
+              <Text style={[styles.quickResSub, { color: colors.textMuted }]}>Sık sorulanlar</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.floPink} />
           </Pressable>
@@ -344,8 +338,8 @@ export default function ArticlesScreen() {
               <Ionicons name="flower" size={20} color={Colors.floTeal} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.quickResTitle, { color: colors.text }]}>Gebe Kalma Rehberi 🌸</Text>
-              <Text style={[styles.quickResSub, { color: colors.textMuted }]}>Şans hesaplayıcı & mukus evreleri</Text>
+              <Text style={[styles.quickResTitle, { color: colors.text }]}>Doğurganlık</Text>
+              <Text style={[styles.quickResSub, { color: colors.textMuted }]}>Pencere ve evreler</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.floTeal} />
           </Pressable>
@@ -380,7 +374,6 @@ export default function ArticlesScreen() {
                 ]}
                 onPress={() => setActiveArticle(articles[0])}
               >
-                <Image source={getArticleImage(articles[0])} style={styles.featuredHeroImg} resizeMode="cover" />
                 <View style={styles.featuredBadgeRow}>
                   <View
                     style={[
@@ -439,7 +432,7 @@ export default function ArticlesScreen() {
             )}
 
             {/* Other Articles List */}
-            <Text style={[styles.sectionHeading, { color: colors.text }]}>Önerilen Rehberler</Text>
+            <Text style={[styles.sectionHeading, { color: colors.text }]}>Makaleler</Text>
             {articles.slice(1).map(item => (
               <Pressable
                 key={item.id}

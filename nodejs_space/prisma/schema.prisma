@@ -67,7 +67,8 @@ model Follow {
   following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
-  @@index([followingId])
+  @@index([followingId, createdAt(sort: Desc)])
+  @@index([followerId, createdAt(sort: Desc)])
 }
 
 model SavedArticle {
@@ -179,6 +180,8 @@ model Pregnancy {
   updatedAt           DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
 }
 
 model PregnancyWeekContent {
@@ -300,7 +303,7 @@ model SpecialDate {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   relationship Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, date])
   @@index([relationshipId])
 }
 
@@ -349,6 +352,7 @@ model SavedPost {
   post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model Comment {
@@ -406,6 +410,9 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, type, createdAt(sort: Desc)])
+  @@index([userId, type, referenceId])
 }
 
 model PartnerLocation {
@@ -434,6 +441,7 @@ model PartnerNudge {
 
   @@index([toUserId, createdAt(sort: Desc)])
   @@index([fromUserId, createdAt(sort: Desc)])
+  @@index([fromUserId, toUserId, type, createdAt(sort: Desc)])
 }
 
 model CoupleMessage {
@@ -443,11 +451,14 @@ model CoupleMessage {
   body      String
   kind      String   @default("chat")
   nudgeId   String?
+  readAt    DateTime?
   createdAt DateTime @default(now())
 
   sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([pairKey, createdAt])
+  @@index([pairKey, nudgeId])
+  @@index([pairKey, senderId, readAt])
 }
 
 /// Server-only vault. Never expose via REST. Nest loads these into process.env at boot.

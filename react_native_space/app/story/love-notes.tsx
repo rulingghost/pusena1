@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
+import { getErrorMessage } from '@/src/api/customFetch';
+import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
+import { usePartnerInfo, useSendCoupleMessage, useCoupleMessages } from '@/src/api/bloomClient';
 
 interface NoteItem {
   id: string;
@@ -27,24 +30,74 @@ export default function LoveNotesScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
 
+  const { data: partnerInfo, isLoading: partnerLoading } = usePartnerInfo();
+  const isPaired = Boolean(partnerInfo?.isPaired || partnerInfo?.paired);
+  const { data: chat } = useCoupleMessages(isPaired);
+  const sendNote = useSendCoupleMessage();
+
   const [customMsg, setCustomMsg] = useState('');
-  const [sentNotes, setSentNotes] = useState<NoteItem[]>([
-    { id: '1', sender: 'Partnerinden', message: 'Günaydın birtanem, bugün senin ve bebeğimizin günü harika geçsin! Seni çok seviyorum ❤️', theme: 'romance', date: 'Bugün 08:15' },
-    { id: '2', sender: 'Sen', message: 'Dün akşamki desteğin ve anlayışın için çok teşekkür ederim sevgilim.', theme: 'gratitude', date: 'Dün 22:30' },
-  ]);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keyboardOverlap = useKeyboardOverlap();
+
+  const sentNotes: NoteItem[] = (chat?.items ?? [])
+    .filter((m) => m.kind === 'note' || m.body.startsWith('💌'))
+    .slice()
+    .reverse()
+    .map((m) => ({
+      id: m.id,
+      sender: m.fromMe ? 'Sen' : partnerInfo?.pairedUserName || partnerInfo?.partnerName || 'Partnerin',
+      message: m.body.replace(/^💌\s*/, ''),
+      theme: 'romance',
+      date: new Date(m.createdAt).toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }),
+    }));
+
+  const flash = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+  };
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
 
   const handleSend = (text: string) => {
-    if (!text.trim()) return;
-    const newNote: NoteItem = {
-      id: Date.now().toString(),
-      sender: 'Sen',
-      message: text.trim(),
-      theme: 'romance',
-      date: 'Az önce',
-    };
-    setSentNotes([newNote, ...sentNotes]);
-    setCustomMsg('');
-    Alert.alert('Not Kaydedildi 💌', 'Notunuz bu cihazda kaydedildi. (Partner eşleştirmesi yapıldığında senkronizasyon eklenecek.)');
+    const body = text.trim();
+    if (!body) return;
+
+    // Eşleşme bilgisi henüz gelmemişse engelleme; kararı sunucu versin.
+    if (!isPaired && !partnerLoading && partnerInfo) {
+      Alert.alert('Önce eşleşin', 'Not iletmek için partner kodu ile bağlanın.', [
+        { text: 'Tamam', style: 'cancel' },
+        { text: 'Bağlan', onPress: () => router.push('/tabs/story') },
+      ]);
+      return;
+    }
+
+    // Not listeye iyimser olarak eklendi; onayı ağı beklemeden göster.
+    const isCustom = body === customMsg.trim();
+    if (isCustom) setCustomMsg('');
+    flash('İletildi ✓ Notunuz partnerinizin sohbetine düştü.');
+
+    sendNote.mutate(
+      { body: `💌 ${body}`, kind: 'note' },
+      {
+        onError: (err) => {
+          if (isCustom) setCustomMsg(body);
+          setToast(null);
+          const status = (err as { status?: number } | undefined)?.status;
+          if (status === 403) {
+            Alert.alert('Önce eşleşin', 'Not iletmek için partner kodu ile bağlanın.', [
+              { text: 'Tamam', style: 'cancel' },
+              { text: 'Bağlan', onPress: () => router.push('/tabs/story') },
+            ]);
+            return;
+          }
+          Alert.alert('İletilemedi', getErrorMessage(err, 'Bağlantıyı kontrol edip tekrar deneyin.'));
+        },
+      },
+    );
   };
 
   return (
@@ -60,7 +113,19 @@ export default function LoveNotesScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      {toast ? (
+        <View style={[styles.toast, { backgroundColor: Colors.relationship }]}>
+          <Ionicons name="checkmark-circle" size={16} color="#fff" />
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
+
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 40 + keyboardOverlap }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {/* Send Box */}
         <View style={[styles.sendCard, { backgroundColor: colors.card, borderColor: Colors.relationship + '40' }]}>
           <Text style={[styles.sendTitle, { color: colors.text }]}>Partnere Özel Aşk Notu Gönder</Text>
@@ -99,15 +164,19 @@ export default function LoveNotesScreen() {
         {/* Sent & Received Notes */}
         <Text style={[styles.secTitle, { color: colors.text, marginTop: 16 }]}>Gelen ve Giden Notlar</Text>
         <View style={styles.notesList}>
-          {sentNotes.map((n) => (
-            <View key={n.id} style={[styles.noteCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.noteTop}>
-                <Text style={[styles.noteSender, { color: Colors.relationship }]}>{n.sender}</Text>
-                <Text style={[styles.noteDate, { color: colors.textMuted }]}>{n.date}</Text>
+          {sentNotes.length === 0 ? (
+            <Text style={{ color: colors.textMuted, fontSize: 13 }}>Henüz iletilmiş not yok.</Text>
+          ) : (
+            sentNotes.map((n) => (
+              <View key={n.id} style={[styles.noteCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.noteTop}>
+                  <Text style={[styles.noteSender, { color: Colors.relationship }]}>{n.sender}</Text>
+                  <Text style={[styles.noteDate, { color: colors.textMuted }]}>{n.date}</Text>
+                </View>
+                <Text style={[styles.noteMsg, { color: colors.text }]}>{n.message}</Text>
               </View>
-              <Text style={[styles.noteMsg, { color: colors.text }]}>{n.message}</Text>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -121,6 +190,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '800' },
   subtitle: { fontSize: 12, marginTop: 1 },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  toastText: { color: '#fff', fontWeight: '800', fontSize: 12.5, flex: 1 },
   sendCard: { padding: 18, borderRadius: 22, borderWidth: 1.5, marginVertical: 12 },
   sendTitle: { fontSize: 15, fontWeight: '800', marginBottom: 10 },
   input: { minHeight: 70, borderRadius: 14, borderWidth: 1, padding: 12, fontSize: 13, marginBottom: 10, textAlignVertical: 'top' },

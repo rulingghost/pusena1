@@ -8,6 +8,14 @@ import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { getErrorMessage } from '@/src/api/customFetch';
 import { useCoupleLocation, useUpsertCoupleLocation } from '@/src/api/bloomClient';
+import { HintNote } from '@/src/components/HintNote';
+import { setLocationSharingFlag } from '@/src/location/PartnerLocationSync';
+import {
+  startPartnerLocationShare,
+  stopPartnerLocationShare,
+  publishPartnerLocationOnce,
+  type ShareMode,
+} from '@/src/location/backgroundShare';
 
 function ago(iso?: string | null) {
   if (!iso) return 'henüz yok';
@@ -49,6 +57,7 @@ export default function CoupleLocationScreen() {
   const { data, isLoading, error, refetch } = useCoupleLocation();
   const upsert = useUpsertCoupleLocation();
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<ShareMode | null>(null);
   const [myPlace, setMyPlace] = useState<string | null>(null);
   const [partnerPlace, setPartnerPlace] = useState<string | null>(null);
 
@@ -80,36 +89,69 @@ export default function CoupleLocationScreen() {
     }
   }, [data?.mine.latitude, data?.mine.longitude, partner?.latitude, partner?.longitude]);
 
+  // Ön plan modunda arka plan servisi yok; ekran açıkken periyodik yayın şart.
   useEffect(() => {
     if (!sharing) return;
     const t = setInterval(() => {
-      publish(true, true);
-    }, 90_000);
+      publishPartnerLocationOnce()
+        .then(() => refetch())
+        .catch(() => {});
+    }, 60_000);
     return () => clearInterval(t);
-  }, [sharing]);
+  }, [sharing, refetch]);
 
-  const publish = async (enabled: boolean, silent = false) => {
+  const publish = async (enabled: boolean) => {
+    setBusy(true);
     try {
-      if (!silent) setBusy(true);
-      if (enabled) {
-        const perm = await Location.requestForegroundPermissionsAsync();
-        if (perm.status !== 'granted') {
-          Alert.alert('İzin gerekli', 'Konum paylaşımı için konum izni verin. İzin yalnızca eşleşmiş partnerinize gider.');
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        await upsert.mutateAsync({
-          sharingEnabled: true,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy ?? undefined,
-        });
-      } else {
+      if (!enabled) {
+        await stopPartnerLocationShare();
         await upsert.mutateAsync({ sharingEnabled: false });
+        await setLocationSharingFlag(false);
+        setMode(null);
+        refetch();
+        return;
       }
+
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert(
+          'İzin gerekli',
+          'Konum paylaşımı için konum izni verin. Konumunuz yalnızca eşleşmiş partnerinize gider.',
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+
+      const pos = await publishPartnerLocationOnce();
+      await upsert.mutateAsync({
+        sharingEnabled: true,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy ?? undefined,
+      });
+      await setLocationSharingFlag(true);
       refetch();
+
+      // Paylaşım zaten açıldı; arka plan servisi başlatılamazsa akış bozulmasın.
+      const started = await startPartnerLocationShare().catch(() => 'foreground' as const);
+      setMode(started);
+      if (started === 'foreground') {
+        Alert.alert(
+          'Paylaşım açıldı',
+          Platform.OS === 'ios'
+            ? 'Konumunuz gidiyor. Uygulama kapalıyken de güncellenmesi için konum iznini “Her Zaman” yapın: Ayarlar > Pusena > Konum.'
+            : 'Konumunuz gidiyor. Uygulama kapalıyken de güncellenmesi için konum iznini “Her zaman izin ver” yapın.',
+          [
+            { text: 'Şimdilik yeter', style: 'cancel' },
+            { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
     } catch (err) {
-      if (!silent) Alert.alert('Konum kaydedilemedi', getErrorMessage(err, 'Konum alınamadı.'));
+      Alert.alert('Konum kaydedilemedi', getErrorMessage(err, 'Konum alınamadı.'));
     } finally {
       setBusy(false);
     }
@@ -139,12 +181,7 @@ export default function CoupleLocationScreen() {
           <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
         ) : (
           <>
-            <View style={[styles.privacy, { backgroundColor: isDark ? colors.card : colors.accentLight, borderColor: colors.border }]}>
-              <Ionicons name="shield-checkmark" size={18} color={colors.accent} />
-              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-                Konum sunucuya yalnızca paylaşımı açtığınızda yazılır. Kapattığınız anda partneriniz sizi göremez. Hassas mahalle bilgisi yerine haritada açmayı tercih edebilirsiniz.
-              </Text>
-            </View>
+            <HintNote text="Açıkken konum arka planda da gider. Kapatınca partneriniz görmez." />
 
             {distanceKm != null && (
               <View style={[styles.distanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -182,9 +219,29 @@ export default function CoupleLocationScreen() {
                       Doğruluk ±{Math.round(data.mine.accuracy)} m
                     </Text>
                   )}
-                  <Pressable onPress={() => publish(true)} style={[styles.refresh, { backgroundColor: colors.accent }]}>
-                    <Ionicons name="locate" size={16} color="#fff" />
-                    <Text style={styles.refreshText}>{busy ? 'Güncelleniyor…' : 'Konumu şimdi gönder'}</Text>
+                  <View style={[styles.refresh, { backgroundColor: colors.accent }]}>
+                    <Ionicons name="radio" size={16} color="#fff" />
+                    <Text style={styles.refreshText}>
+                      {busy
+                        ? 'Açılıyor…'
+                        : mode === 'foreground'
+                          ? 'Paylaşım açık · uygulama açıkken güncellenir'
+                          : 'Paylaşım açık · arka planda güncellenir'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      setBusy(true);
+                      publishPartnerLocationOnce()
+                        .then(() => refetch())
+                        .catch((err) => Alert.alert('Güncellenemedi', getErrorMessage(err, 'Konum alınamadı.')))
+                        .finally(() => setBusy(false));
+                    }}
+                    disabled={busy}
+                    style={[styles.secondary, { borderColor: colors.border }]}
+                  >
+                    <Ionicons name="refresh" size={16} color={colors.text} />
+                    <Text style={[styles.secondaryText, { color: colors.text }]}>Konumumu şimdi güncelle</Text>
                   </Pressable>
                   {data?.mine.latitude != null && (
                     <Pressable

@@ -13,22 +13,32 @@
     },
     "ios": {
       "supportsTablet": true,
+      "icon": "./assets/icon.png",
       "bundleIdentifier": "com.abacusai.bloomapp.t1787256823",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
+      }
     },
     "android": {
+      "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.abacusai.bloomapp.t1787256823",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ],
       "intentFilters": [
         {
@@ -74,13 +84,19 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Pusena, eşleşmiş partnerinizle konum paylaşmak için konumunuza ihtiyaç duyar."
+          "locationWhenInUsePermission": "Pusena, eşleşmiş partnerinizle konum paylaşmak için konumunuza ihtiyaç duyar.",
+          "locationAlwaysAndWhenInUsePermission": "Paylaşım açıkken konumunuz uygulama kapalıyken de yalnızca eşleşmiş partnerinize gider.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ]
     ],
     "scheme": "abacusai1787256823",
     "extra": {
-      "productionApiUrl": "https://pusena-api.onrender.com"
+      "productionApiUrl": "https://pusena-api.onrender.com",
+      "eas": {
+        "projectId": "7bc418e6-d281-4c29-b935-84447480d52e"
+      }
     }
   }
 }

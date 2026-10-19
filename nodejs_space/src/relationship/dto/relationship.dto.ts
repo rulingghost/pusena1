@@ -47,9 +47,11 @@ export class LocationUpdateDto {
 
 export class SendNudgeDto {
   @IsString() type: string;
+  @IsOptional() @IsString() comment?: string;
 }
 
 export class CoupleChatDto {
   @IsString() @MinLength(1) body: string;
   @IsOptional() @IsString() nudgeId?: string;
+  @IsOptional() @IsString() kind?: string;
 }

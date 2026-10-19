@@ -11,14 +11,12 @@ import {
   Modal,
   TextInput,
   Platform,
-  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import { AppImages } from '@/src/theme/images';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   useRelationshipControllerGet,
@@ -28,10 +26,11 @@ import { apiClient } from '@/src/api/client';
 import { getErrorMessage } from '@/src/api/customFetch';
 import { usePartnerInfo, useUnpairPartner } from '@/src/api/bloomClient';
 import { copyToClipboard } from '@/src/utils/copyText';
-import { isMaleUser, isFemaleUser } from '@/src/utils/gender';
+import { isMaleUser } from '@/src/utils/gender';
 import { confirmPartnerPair } from '@/src/utils/pairFlow';
 import { useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { CoupleToolsGrid } from '@/src/components/CoupleToolsGrid';
 
 export default function PartnerScreen() {
   const insets = useSafeAreaInsets();
@@ -39,7 +38,6 @@ export default function PartnerScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const male = isMaleUser(user);
-  const female = isFemaleUser(user);
   const queryClient = useQueryClient();
 
   const { data: rel, refetch: refetchRel } = useRelationshipControllerGet({
@@ -54,6 +52,17 @@ export default function PartnerScreen() {
   const [showPairModal, setShowPairModal] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [sentNudge, setSentNudge] = useState<string | null>(null);
+
+  /** Onayı hemen göster, isteği arkada gönder: kullanıcı ağı beklemesin. */
+  const sendQuickNudge = (type: string, label: string) => {
+    setSentNudge(type);
+    setTimeout(() => setSentNudge((cur) => (cur === type ? null : cur)), 1800);
+    apiClient.post('/api/relationship/live/nudges', { type }).catch((err) => {
+      setSentNudge(null);
+      Alert.alert('Gönderilemedi', getErrorMessage(err, `${label} isteği iletilemedi. Bağlantıyı kontrol edin.`));
+    });
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -158,11 +167,7 @@ export default function PartnerScreen() {
           <View>
             <Text style={[styles.screenTitle, { color: colors.text }]}>Partner</Text>
             <Text style={[styles.screenSubtitle, { color: colors.textMuted }]}>
-              {isPaired
-                ? `${partnerDisplayName} ile canlı senkronize`
-                : male
-                  ? 'Partnerinizle sohbet, konum ve destek ipuçları'
-                  : 'Hamilelik ve döngü yolculuğunuzu partnerinizle paylaşın'}
+              {isPaired ? partnerDisplayName : 'Kod ile eşleşin'}
             </Text>
           </View>
 
@@ -184,7 +189,7 @@ export default function PartnerScreen() {
                 { color: isPaired ? Colors.floTeal : Colors.floPink },
               ]}
             >
-              {isPaired ? 'Bağlandı' : 'Partneri Bağla'}
+              {isPaired ? 'Bağlı' : 'Bağla'}
             </Text>
           </Pressable>
         </View>
@@ -199,38 +204,17 @@ export default function PartnerScreen() {
         <View
           style={[
             styles.heroCard,
-            {
-              backgroundColor: isDark ? '#2D1828' : '#FFF0F6',
-              borderColor: Colors.relationship + '30',
-            },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Image source={AppImages.coupleRomanticHug} style={styles.heroCoupleImg} resizeMode="cover" />
-          <View style={styles.heroTopRow}>
-            <View style={[styles.heroIconBox, { backgroundColor: Colors.floPinkLight }]}>
-              <Ionicons name="heart" size={26} color={Colors.floPink} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.heroCardTitle, { color: colors.text }]}>
-                {isPaired ? partnerDisplayName : 'Partnerinizle Daha Yakın'}
-              </Text>
-              <Text style={[styles.heroCardSub, { color: colors.textMuted }]}>
-                {isPaired
-                  ? (male ? 'Destek rehberi ve çift araçları aktif' : 'Birlikte döngü ve gebelik takibi aktif')
-                  : (male ? 'Eşleşince partnerinizin özetini ve nasıl destek olacağınızı görürsünüz' : 'Döngünüzü ve ihtiyaçlarınızı partnerinize aktarın')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Quick Connect or Share Box */}
           <View
             style={[
               styles.codeBox,
-              { backgroundColor: isDark ? '#3D2032' : '#FFFFFF', borderColor: colors.border },
+              { backgroundColor: colors.inputBg, borderColor: colors.border },
             ]}
           >
             <View style={styles.codeTextCol}>
-              <Text style={[styles.codeLabel, { color: colors.textMuted }]}>Sizin Partner Kodunuz</Text>
+              <Text style={[styles.codeLabel, { color: colors.textMuted }]}>Kodunuz</Text>
               <Text style={[styles.codeValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
                 {myCode}
               </Text>
@@ -264,10 +248,6 @@ export default function PartnerScreen() {
           </View>
         </View>
 
-        {/* Couple Interactive Tools Grid */}
-        <Text style={[styles.sectionHeading, { color: colors.text }]}>
-          Çift araçları
-        </Text>
         {isPaired && (
           <View style={styles.nudgeStrip}>
             {[
@@ -278,18 +258,23 @@ export default function PartnerScreen() {
             ].map((n) => (
               <Pressable
                 key={n.id}
-                onPress={async () => {
-                  try {
-                    await apiClient.post('/api/relationship/live/nudges', { type: n.id });
-                    Alert.alert('Gönderildi', `${n.label} isteği partnerinize bildirildi.`);
-                  } catch (err) {
-                    Alert.alert('Gönderilemedi', getErrorMessage(err, 'Eşleşme veya bağlantıyı kontrol edin.'));
-                  }
-                }}
-                style={[styles.nudgeChip, { backgroundColor: isDark ? colors.card : '#FFF', borderColor: colors.border }]}
+                onPress={() => sendQuickNudge(n.id, n.label)}
+                style={({ pressed }) => [
+                  styles.nudgeChip,
+                  { backgroundColor: isDark ? colors.card : '#FFF', borderColor: colors.border },
+                  sentNudge === n.id && { backgroundColor: Colors.floPinkLight, borderColor: 'transparent' },
+                  pressed && { opacity: 0.6 },
+                ]}
               >
-                <Text style={{ fontSize: 16 }}>{n.emoji}</Text>
-                <Text style={[styles.nudgeChipText, { color: colors.text }]}>{n.label}</Text>
+                <Text style={{ fontSize: 16 }}>{sentNudge === n.id ? '✓' : n.emoji}</Text>
+                <Text
+                  style={[
+                    styles.nudgeChipText,
+                    { color: sentNudge === n.id ? Colors.floPink : colors.text },
+                  ]}
+                >
+                  {sentNudge === n.id ? 'Gönderildi' : n.label}
+                </Text>
               </Pressable>
             ))}
             <Pressable
@@ -300,117 +285,7 @@ export default function PartnerScreen() {
             </Pressable>
           </View>
         )}
-        <View style={styles.coupleToolsGrid}>
-          {[
-            { title: 'Özel sohbet', sub: 'Sadece ikiniz görürsünüz', icon: 'chatbubble-ellipses', route: '/story/couple-chat', color: Colors.relationship },
-            { title: 'İstekler', sub: 'Masaj, huzur, yakınlık', icon: 'hand-left', route: '/story/couple-requests', color: Colors.floPink },
-            { title: 'Konum', sub: 'İsterseniz birbirinizi görün', icon: 'location', route: '/story/couple-location', color: Colors.floTeal },
-            { title: 'Günün Çift Sorusu', sub: 'Her gün 1 soru ile yakınlaşın', icon: 'chatbubbles', route: '/story/daily-questions', color: Colors.relationship },
-            { title: 'Anı Defterimiz', sub: 'Özel dönüm noktalarını saklayın', icon: 'camera', route: '/story/memories', color: Colors.floPink },
-            { title: 'Aşk & Teşekkür Notları', sub: 'Partnere tatlı sürpriz mesajlar', icon: 'mail', route: '/story/love-notes', color: Colors.floPurple },
-            { title: 'Partner Rehberi', sub: 'Verilerinize göre kişiselleştirilmiş destek', icon: 'people', route: '/story/partner-guide', color: '#0284C7' },
-          ].map((tool, idx) => (
-            <Pressable
-              key={idx}
-              style={[
-                styles.coupleToolCard,
-                { backgroundColor: isDark ? colors.card : '#FFFFFF', borderColor: colors.border },
-              ]}
-              onPress={() => router.push(tool.route as any)}
-            >
-              <View style={[styles.coupleToolIcon, { backgroundColor: tool.color + '15' }]}>
-                <Ionicons name={tool.icon as any} size={22} color={tool.color} />
-              </View>
-              <Text style={[styles.coupleToolTitle, { color: colors.text }]}>{tool.title}</Text>
-              <Text style={[styles.coupleToolSub, { color: colors.textMuted }]}>{tool.sub}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionHeading, { color: colors.text }]}>
-          {male ? 'Siz ve partneriniz ne görür? 👀' : 'Partneriniz neler görür? 👀'}
-        </Text>
-
-        <View style={styles.previewGrid}>
-          {(male
-            ? [
-                {
-                  icon: 'heart-outline' as const,
-                  color: Colors.floTeal,
-                  bg: Colors.floTealLight,
-                  title: 'Sizin ekranınız',
-                  desc: 'Regl ve gebelik sizin ana ekranınızda yoktur. Sohbet, istekler, konum ve çift soruları sizin alanınızdır.',
-                },
-                {
-                  icon: 'eye-outline' as const,
-                  color: '#0284C7',
-                  bg: '#E8F4FC',
-                  title: 'Partneriniz sizi nasıl görür',
-                  desc: 'Konumunuz (açarsanız), istekleriniz, sohbet ve aşk notlarınız. Sizin adınıza döngü takvimi açılmaz.',
-                },
-                {
-                  icon: 'flower-outline' as const,
-                  color: Colors.pregnancy,
-                  bg: '#FFF4E5',
-                  title: 'Siz onu nasıl görürsünüz',
-                  desc: 'Eşleşince döngü evresi veya gebelik haftası özeti ve günün destek ipuçları. Semptom günlüğü gizli kalır.',
-                },
-                {
-                  icon: 'shield-checkmark-outline' as const,
-                  color: Colors.floPurple,
-                  bg: Colors.floPurpleLight,
-                  title: 'Mahremiyet',
-                  desc: 'Konum varsayılan kapalıdır. Topluluk ve kişisel sağlık notları yalnızca sahibindedir.',
-                },
-              ]
-            : [
-                {
-                  icon: 'water-outline' as const,
-                  color: Colors.floPink,
-                  bg: Colors.floPinkLight,
-                  title: 'Döngü özeti',
-                  desc: female
-                    ? 'Partneriniz evrenizi ve doğurganlık penceresini görür. Semptom notlarınız ve kilo kaydınız gizli kalır.'
-                    : 'Eşleşince döngü evresi özeti paylaşılır; detaylı sağlık günlüğü paylaşılmaz.',
-                },
-                {
-                  icon: 'bulb-outline' as const,
-                  color: Colors.floTeal,
-                  bg: Colors.floTealLight,
-                  title: 'Günün destek ipuçları',
-                  desc: '“Bugün sakin bir akşam öner” gibi kişiselleştirilmiş tavsiyeler Partner Rehberi’nde görünür.',
-                },
-                {
-                  icon: 'happy-outline' as const,
-                  color: Colors.pregnancy,
-                  bg: '#FFF4E5',
-                  title: 'Gebelik haftası',
-                  desc: 'Gebelik açıksa hafta ve bebek boyutu paylaşılır. Hastane çantası ve kişisel notlar size özeldir.',
-                },
-                {
-                  icon: 'chatbubbles-outline' as const,
-                  color: Colors.floPurple,
-                  bg: Colors.floPurpleLight,
-                  title: 'Ortak ilişki alanı',
-                  desc: 'Sohbet, istekler, konum (açarsanız) ve çift soruları ikinizde de aynıdır.',
-                },
-              ]
-          ).map((card) => (
-          <View
-            key={card.title}
-            style={[
-              styles.featureCard,
-              { backgroundColor: isDark ? colors.card : '#FFFFFF', borderColor: colors.border },
-            ]}
-          >
-            <View style={[styles.featureIcon, { backgroundColor: card.bg }]}>
-              <Ionicons name={card.icon} size={20} color={card.color} />
-            </View>
-            <Text style={[styles.featureTitle, { color: colors.text }]}>{card.title}</Text>
-            <Text style={[styles.featureDesc, { color: colors.textMuted }]}>{card.desc}</Text>
-          </View>
-          ))}
-        </View>
+        <CoupleToolsGrid isPaired={isPaired} />
 
         {/* Relationship Details & Anniversary */}
         {rel && (
@@ -421,7 +296,7 @@ export default function PartnerScreen() {
             ]}
           >
             <View style={styles.relDetailHeader}>
-              <Text style={[styles.relDetailTitle, { color: colors.text }]}>İlişki Sayacınız</Text>
+              <Text style={[styles.relDetailTitle, { color: colors.text }]}>İlişki</Text>
               <Pressable
                 onPress={() => router.push('/story/couple-profile')}
                 style={styles.relEditBtn}
@@ -445,8 +320,8 @@ export default function PartnerScreen() {
 
         {/* Special Dates Section */}
         <View style={styles.datesHeaderRow}>
-          <Text style={[styles.sectionHeading, { color: colors.text, marginBottom: 0 }]}>
-            Özel Günler 🎁
+            <Text style={[styles.sectionHeading, { color: colors.text, marginBottom: 0 }]}>
+            Özel günler
           </Text>
           <Pressable
             style={[styles.addDatePill, { backgroundColor: Colors.floPinkLight }]}

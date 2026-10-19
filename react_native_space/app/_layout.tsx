@@ -8,11 +8,18 @@ import { ErrorBoundary } from '@/src/components/ErrorBoundary';
 import { GenderThemeSync } from '@/src/components/GenderThemeSync';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { loadApiBase } from '@/src/api/apiBase';
+import { hydrateQueryCache, watchQueryCache } from '@/src/api/queryPersist';
 import { StatusBar, View } from 'react-native';
+import { AppAlertProvider } from '@/src/components/AppAlert';
+import { PartnerLocationSync } from '@/src/location/PartnerLocationSync';
+import { LiveAlertsSync } from '@/src/notifications/LiveAlertsSync';
+import '@/src/location/backgroundShare';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
       retry: (failureCount, error) => {
         const status = (error as { status?: number } | undefined)?.status;
         if (status === 401 || status === 404) return false;
@@ -22,12 +29,14 @@ const queryClient = new QueryClient({
   },
 });
 
+watchQueryCache(queryClient);
+
 /** Kayıtlı sunucu adresi, ilk istek atılmadan önce yüklenmeli. */
 function ApiBaseGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    loadApiBase().finally(() => setReady(true));
+    Promise.all([loadApiBase(), hydrateQueryCache(queryClient)]).finally(() => setReady(true));
   }, []);
 
   if (!ready) return <LoadingScreen />;
@@ -78,7 +87,11 @@ export default function RootLayout() {
           <LanguageProvider>
             <ApiBaseGate>
               <AuthProvider>
-                <RootNavigator />
+                <AppAlertProvider>
+                  <PartnerLocationSync />
+                  <LiveAlertsSync />
+                  <RootNavigator />
+                </AppAlertProvider>
               </AuthProvider>
             </ApiBaseGate>
           </LanguageProvider>

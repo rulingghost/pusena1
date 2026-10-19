@@ -8,17 +8,21 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/jpg']);
 export class MediaService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Göreli yol saklanır. Mutlak URL saklamak, geliştirme makinesinin yerel IP'sini
+   * kalıcı olarak veritabanına yazıp başka ağdaki kullanıcılarda görselleri
+   * bozuyordu; istemci adresi kendi API tabanıyla çözüyor.
+   */
   publicUrl(id: string): string {
-    const base = (process.env.PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    return `${base}/api/media/${id}`;
+    return `/api/media/${id}`;
   }
 
   async persistDataUri(userId: string, kind: string, value?: string | null): Promise<string | null> {
     if (value == null || value === '') return null;
     const trimmed = value.trim();
-    if (trimmed.startsWith('/api/media/') || /^https?:\/\//i.test(trimmed)) {
-      return trimmed;
-    }
+    const mediaId = trimmed.match(/\/api\/media\/([a-zA-Z0-9-]+)/)?.[1];
+    if (mediaId) return `/api/media/${mediaId}`;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
     const parsed = parseDataUri(trimmed);
     if (!parsed) {
       throw new BadRequestException('Geçersiz görsel. JPEG, PNG veya WebP yükleyin.');
@@ -36,12 +40,8 @@ export class MediaService {
 
   async persistMany(userId: string, kind: string, values?: string[]): Promise<string[]> {
     if (!values?.length) return [];
-    const out: string[] = [];
-    for (const value of values) {
-      const url = await this.persistDataUri(userId, kind, value);
-      if (url) out.push(url);
-    }
-    return out;
+    const saved = await Promise.all(values.map((value) => this.persistDataUri(userId, kind, value)));
+    return saved.filter((url): url is string => !!url);
   }
 
   async getObject(id: string) {

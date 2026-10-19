@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert, TextInput, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useSearchUsers, useToggleFollow, useMyPosts } from '@/src/api/bloomClient';
 import type { CommunityUser, MyPostWithComments } from '@/src/api/bloomClient';
 import { customFetch } from '@/src/api/customFetch';
+import { resolveMediaUrl } from '@/src/utils/mediaUrl';
 
 const CATEGORIES = [
   { key: undefined, label: 'Tümü' },
@@ -45,6 +46,29 @@ function formatDate(dateStr?: string) {
 
 function initial(name?: string | null) {
   return (name ?? '?')?.[0]?.toLocaleUpperCase('tr-TR') ?? '?';
+}
+
+function UserAvatar({
+  uri,
+  name,
+  size,
+  radius,
+}: {
+  uri?: string | null;
+  name?: string | null;
+  size: number;
+  radius: number;
+}) {
+  const resolved = resolveMediaUrl(uri);
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: Colors.lavender, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      {resolved ? (
+        <Image source={{ uri: resolved }} style={{ width: size, height: size }} />
+      ) : (
+        <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: size * 0.34 }}>{initial(name)}</Text>
+      )}
+    </View>
+  );
 }
 
 function FollowButton({ user }: { user: CommunityUser }) {
@@ -84,9 +108,7 @@ function PersonRow({ user, onPress }: { user: CommunityUser; onPress: () => void
   const { colors } = useTheme();
   return (
     <Pressable style={[styles.personRow, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={onPress}>
-      <View style={[styles.personAvatar, { backgroundColor: Colors.lavender }]}>
-        <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 16 }}>{initial(user.name)}</Text>
-      </View>
+      <UserAvatar uri={user.avatarUrl} name={user.name} size={44} radius={16} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.personName, { color: colors.text }]} numberOfLines={1}>{user.name}</Text>
         {!!user.biography && (
@@ -137,9 +159,7 @@ function MyPostCard({ post, onPress }: { post: MyPostWithComments; onPress: () =
         <View style={[styles.commentThread, { borderLeftColor: colors.border }]}>
           {visibleComments.map((c) => (
             <View key={c.id} style={styles.commentRow}>
-              <View style={[styles.commentAvatar, { backgroundColor: Colors.lavender }]}>
-                <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 11 }}>{initial(c.authorName)}</Text>
-              </View>
+              <UserAvatar uri={c.authorAvatarUrl} name={c.authorName} size={28} radius={10} />
               <View style={{ flex: 1 }}>
                 <View style={styles.commentHeaderRow}>
                   <Text style={[styles.commentAuthor, { color: colors.text }]} numberOfLines={1}>{c.authorName}</Text>
@@ -228,9 +248,7 @@ export default function CommunityScreen() {
     <Pressable style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push(`/community/${item?.id}`)}>
       <View style={styles.postHeader}>
         <Pressable style={styles.authorTap} onPress={() => openProfile(item?.authorId)} hitSlop={4}>
-          <View style={[styles.avatar, { backgroundColor: Colors.lavender }]}>
-            <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 13 }}>{initial(item?.authorName)}</Text>
-          </View>
+          <UserAvatar uri={item?.authorAvatarUrl} name={item?.authorName} size={38} radius={14} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.authorName, { color: colors.text }]}>{item?.authorName ?? 'Anonim'}</Text>
             <Text style={[styles.postTime, { color: colors.textMuted }]}>{formatDate(item?.createdAt)}</Text>
@@ -289,7 +307,7 @@ export default function CommunityScreen() {
       </View>
 
       {tab === 'feed' && (
-        <>
+        <View style={{ flex: 1 }}>
           <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="search" size={18} color={colors.textMuted} />
             <TextInput
@@ -307,23 +325,34 @@ export default function CommunityScreen() {
               </Pressable>
             )}
           </View>
-          <FlatList
+          <ScrollView
             horizontal
-            data={CATEGORIES}
-            keyExtractor={(item) => item.key ?? 'all'}
-            renderItem={({ item }) => (
-              <Pressable
-                style={[styles.chip, category === item.key ? { backgroundColor: Colors.primary } : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
-                onPress={() => setCategory(item.key)}
-              >
-                <Text style={[styles.chipText, { color: category === item.key ? '#fff' : colors.text }]}>{item.label}</Text>
-              </Pressable>
-            )}
             style={styles.chipList}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+            contentContainerStyle={styles.chipContent}
             showsHorizontalScrollIndicator={false}
-          />
+          >
+            {CATEGORIES.map((item) => {
+              const active = category === item.key;
+              return (
+                <Pressable
+                  key={item.key ?? 'all'}
+                  style={[
+                    styles.chip,
+                    active
+                      ? { backgroundColor: Colors.primary, borderColor: Colors.primary }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setCategory(item.key)}
+                >
+                  <Text style={[styles.chipText, { color: active ? '#fff' : colors.text }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           <FlatList
+            style={{ flex: 1 }}
             data={data?.items ?? []}
             keyExtractor={(item) => item?.id ?? Math.random().toString()}
             renderItem={renderPost}
@@ -340,11 +369,11 @@ export default function CommunityScreen() {
               )
             }
           />
-        </>
+        </View>
       )}
 
       {tab === 'people' && (
-        <>
+        <View style={{ flex: 1 }}>
           <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="search" size={18} color={colors.textMuted} />
             <TextInput
@@ -388,11 +417,12 @@ export default function CommunityScreen() {
               )
             }
           />
-        </>
+        </View>
       )}
 
       {tab === 'mine' && (
         <FlatList
+          style={{ flex: 1 }}
           data={myPostsData?.items ?? []}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <MyPostCard post={item} onPress={() => router.push(`/community/${item.id}`)} />}
@@ -417,7 +447,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '700', letterSpacing: 0.3 },
+  title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
   createBtn: {
     width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
@@ -430,9 +460,17 @@ const styles = StyleSheet.create({
   segment: { flex: 1, paddingVertical: 9, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 12.5, fontWeight: '700' },
 
-  chipList: { flexGrow: 0, marginBottom: 12 },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  chipText: { fontSize: 13, fontWeight: '600' },
+  chipList: { flexGrow: 0, height: 48, marginBottom: 8 },
+  chipContent: { paddingHorizontal: 20, alignItems: 'center', gap: 8, paddingRight: 28 },
+  chip: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipText: { fontSize: 13, fontWeight: '700' },
   listContent: { paddingHorizontal: 20, paddingBottom: 24 },
   postCard: {
     borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1,

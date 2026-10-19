@@ -25,7 +25,7 @@ export class ArticlesService {
     {
       id: 'art-1',
       title: 'Foliküler Evrede Bedeninizde Neler Değişir?',
-      subtitle: 'Östrojenin yükselişi, artan enerji ve cilt parlaklığının sırrı',
+      subtitle: 'Foliküler evre regl ile başlar; östrojen yavaş yükselir',
       category: 'cycle',
       categoryName: 'Döngü & Hormonlar',
       author: 'Dr. Zeynep Kaya',
@@ -33,12 +33,12 @@ export class ArticlesService {
       readTime: '4 dk',
       hasAudio: false,
       audioDuration: '5:20',
-      summary: 'Regl bittikten sonra başlayan foliküler evrede östrojen hormonu hızla artarak zindelik ve yaratıcılığı zirveye taşır.',
+      summary: 'Foliküler evre adetin ilk gününde başlar ve yumurtlamaya kadar sürer. Kanama bittikten sonra östrojen yükselir; enerji artışı genellikle o dönemde hissedilir.',
       content: [
-        'Adet kanamasının ilk gününden ovülasyona kadar olan süre foliküler evre olarak adlandırılır.',
-        'Bu dönemde hipofiz bezinden salgılanan FSH (Folikül Uyarıcı Hormon), yumurtalıklarda yeni bir yumurtanın olgunlaşmasını tetikler.',
-        'Östrojen seviyeleri yükseldikçe enerjiniz, motivasyonunuz ve odaklanma yeteneğiniz artar. Beyindeki dopamin ve serotonin aktivitesi desteklenir.',
-        'Beslenme Tavsiyesi: Vücudun artan metabolik hızını desteklemek için yeşil yapraklı sebzeler, fermente gıdalar ve avokado gibi sağlıklı yağları tüketmek harika sonuç verir.'
+        'Foliküler evre, adet kanamasının 1. gününden yumurtlamaya kadar olan süredir. Yani regl, bu evrenin dışında değil içindedir.',
+        'Hipofizden salgılanan FSH, yumurtalıklarda bir folikülün olgunlaşmasını sağlar. Kanama bittikten sonra östrojen daha belirgin yükselir.',
+        'Östrojen yükseldikçe birçok kişide enerji, cilt ve odaklanma toparlanır. Bu bir kural değil, sık görülen bir eğilimdir.',
+        'Beslenme: yeşil yapraklılar, protein ve sağlıklı yağlar yeterlidir. Tek bir “süper besin” döngüyü değiştirmez. Bilgiler geneldir; şikayetiniz varsa hekime danışın.',
       ],
       tags: ['Foliküler Evre', 'Östrojen', 'Enerji', 'Hormonlar'],
       reviewedBy: 'Tıp Kurulu Onaylı • Dr. Zeynep Kaya',
@@ -115,10 +115,11 @@ export class ArticlesService {
       hasAudio: false,
       summary: 'Hormonal ritminize uyum sağlayarak daha fazla kalori yakın, yorgunluğu önleyin ve gücünüzü artırın.',
       content: [
-        'Menstrüasyon (1-5. Gün): Hafif esneme, yin yoga ve dinlenme.',
-        'Foliküler Evre (6-12. Gün): Yüksek yoğunluklu kardiyo (HIIT), koşu ve yeni egzersizler denemek için en uygun zaman.',
-        'Ovülasyon (13-16. Gün): Güç ve ağırlık antrenmanları; kas inşa etmek ve maksimum ağırlıkları kaldırmak için ideal evre.',
-        'Luteal Evre (17-28. Gün): Pilates, yürüyüş ve kontrollü direnç hareketleri.'
+        'Aşağıdaki gün aralıkları 28 günlük örnek bir döngü içindir. Sizin döngünüz daha kısa veya uzun olabilir; yumurtlama çoğu kişide bir sonraki adetten yaklaşık 14 gün önce olur.',
+        'Kanama günleri: dinlenmek zorunda değilsiniz. Ağrı yoksa yürüyüş ve hafif esneme yeter; şiddetli krampta tempo düşürün.',
+        'Kanama bittikten yumurtlamaya kadar: enerji genelde artar. Koşu veya kuvvet antrenmanı bu evrede daha kolay gelebilir.',
+        'Yumurtlama civarı: bazı kişilerde bağ gevşekliği artar; ağır kaldırmada formu koruyun.',
+        'Luteal evre: yorgunluk normal olabilir. Yürüyüş, pilates ve kısa antrenman daha sürdürülebilirdir. Bu bir antrenman programı değil, genel eğilimdir.',
       ],
       tags: ['Egzersiz', 'Döngü Senkronizasyonu', 'Pilates', 'Kardiyo'],
       reviewedBy: 'Tıp Kurulu Onaylı • Buket Tunç',

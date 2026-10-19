@@ -40,7 +40,12 @@ export class RelationshipController {
 
   @Post('live/nudges')
   async sendNudge(@Req() req: Request, @Body() dto: SendNudgeDto) {
-    return this.coupleLive.sendNudge((req as any).user.id, dto.type);
+    return this.coupleLive.sendNudge((req as any).user.id, dto.type, dto.comment);
+  }
+
+  @Post('live/nudges/:nudgeId/to-chat')
+  async transferNudgeToChat(@Req() req: Request, @Param('nudgeId') nudgeId: string) {
+    return this.coupleLive.transferNudgeToChat((req as any).user.id, nudgeId);
   }
 
   @Post('live/nudges/:nudgeId/reply')
@@ -60,7 +65,7 @@ export class RelationshipController {
 
   @Post('live/messages')
   async sendMessage(@Req() req: Request, @Body() dto: CoupleChatDto) {
-    return this.coupleLive.sendMessage((req as any).user.id, dto.body, dto.nudgeId);
+    return this.coupleLive.sendMessage((req as any).user.id, dto.body, dto.nudgeId, dto.kind);
   }
 
   @Get('couple-questions')

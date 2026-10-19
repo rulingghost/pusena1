@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -14,8 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
+import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { apiClient } from '@/src/api/client';
-import { invokeAssistantChat, isAssistantEdgeConfigured } from '@/src/api/assistantEdge';
 import { useRouter } from 'expo-router';
 import { BrandLogo } from '@/src/components/BrandLogo';
 
@@ -32,6 +31,7 @@ export default function MessagesScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const keyboardOverlap = useKeyboardOverlap();
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -96,13 +96,8 @@ export default function MessagesScreen() {
         question: text.trim(),
         history: messages.slice(-8).map((m) => ({ sender: m.sender, text: m.text })),
       };
-      let msg: { text?: string } | null = null;
-      if (isAssistantEdgeConfigured()) {
-        msg = await invokeAssistantChat(payload);
-      } else {
-        const res = await apiClient.post<any>('/api/assistant/chat', payload);
-        msg = res?.data || res;
-      }
+      const res = await apiClient.post<any>('/api/assistant/chat', payload);
+      const msg = res?.data || res;
       if (msg && msg.text) {
         setMessages(prev => [...prev, msg as ChatMessage]);
       }
@@ -140,11 +135,7 @@ export default function MessagesScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
@@ -330,7 +321,8 @@ export default function MessagesScreen() {
           {
             backgroundColor: isDark ? colors.card : '#FFFFFF',
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 12),
+            paddingBottom: keyboardOverlap > 0 ? 12 : Math.max(insets.bottom, 12),
+            marginBottom: keyboardOverlap,
           },
         ]}
       >
@@ -348,6 +340,8 @@ export default function MessagesScreen() {
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={() => sendMessage(inputText)}
+          onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 120)}
+          returnKeyType="send"
         />
         <Pressable
           style={[
@@ -362,7 +356,7 @@ export default function MessagesScreen() {
           <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

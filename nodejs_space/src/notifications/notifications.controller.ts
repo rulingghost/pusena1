@@ -67,25 +67,32 @@ export class NotificationsController {
     return this.notificationsService.answerAction((req as any).user.id, id, dto.answer);
   }
 
+  /**
+   * Cron anahtarı JWT_SECRET'e düşmemeli: bir token sızıntısı cron'u da
+   * tetiklenebilir hale getiriyordu.
+   */
+  private assertCronKey(apiKey: string) {
+    const secret = this.configService.get<string>('CRON_SECRET');
+    if (!secret) throw new ForbiddenException('CRON_SECRET tanımlı değil');
+    if (!apiKey || apiKey !== secret) throw new ForbiddenException('Geçersiz API anahtarı');
+  }
+
   // Cron endpoints — protected by API key
   @Post('cron/pregnancy-tips')
   async cronPregnancyTips(@Headers('x-api-key') apiKey: string): Promise<SendNotificationResponseDto> {
-    const secret = this.configService.get<string>('CRON_SECRET') || this.configService.get<string>('JWT_SECRET');
-    if (apiKey !== secret) throw new ForbiddenException('Geçersiz API anahtarı');
+    this.assertCronKey(apiKey);
     return this.notificationsService.sendPregnancyTips();
   }
 
   @Post('cron/special-date-reminders')
   async cronSpecialDateReminders(@Headers('x-api-key') apiKey: string): Promise<SendNotificationResponseDto> {
-    const secret = this.configService.get<string>('CRON_SECRET') || this.configService.get<string>('JWT_SECRET');
-    if (apiKey !== secret) throw new ForbiddenException('Geçersiz API anahtarı');
+    this.assertCronKey(apiKey);
     return this.notificationsService.sendSpecialDateReminders();
   }
 
   @Post('cron/period-reminders')
   async cronPeriodReminders(@Headers('x-api-key') apiKey: string): Promise<SendNotificationResponseDto> {
-    const secret = this.configService.get<string>('CRON_SECRET') || this.configService.get<string>('JWT_SECRET');
-    if (apiKey !== secret) throw new ForbiddenException('Geçersiz API anahtarı');
+    this.assertCronKey(apiKey);
     return this.notificationsService.sendPeriodReminders();
   }
 }

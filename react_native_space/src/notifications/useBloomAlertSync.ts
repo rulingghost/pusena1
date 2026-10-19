@@ -1,16 +1,18 @@
 import { useEffect } from 'react';
 import { useSettingsControllerGetSettings, useSpecialDatesControllerGetAll, usePregnancyControllerGet, usePeriodControllerGet } from '@/src/api/generated/api';
-import { syncBloomAlerts, type AlertPrefs } from '@/src/notifications/bloomAlerts';
+import { syncBloomAlerts, syncDailyQuestionAlert, type AlertPrefs } from '@/src/notifications/bloomAlerts';
+import { useCoupleQuestions } from '@/src/api/bloomClient';
 
 export function useBloomAlertSync(enabled: boolean) {
   const { data: settings } = useSettingsControllerGetSettings({ query: { enabled } });
   const { data: dates } = useSpecialDatesControllerGetAll({ page: 1, limit: 50 }, { query: { enabled } });
   const { data: pregnancy } = usePregnancyControllerGet({ query: { enabled, retry: false } });
   const { data: period } = usePeriodControllerGet({ query: { enabled, retry: false } });
+  const { data: coupleQ } = useCoupleQuestions(enabled);
 
   useEffect(() => {
     if (!enabled || !settings?.notifications) return;
-    const n = settings.notifications as AlertPrefs & Record<string, unknown>;
+    const n = settings.notifications as unknown as Partial<AlertPrefs> & Record<string, unknown>;
     const prefs: AlertPrefs = {
       medicationReminder: n.medicationReminder !== false,
       countdownReminder: n.countdownReminder !== false,
@@ -29,6 +31,8 @@ export function useBloomAlertSync(enabled: boolean) {
     const nextPeriodRaw = (period as any)?.currentCycle?.nextPeriodDate ?? (period as any)?.nextPeriodDate;
     const nextPeriod = nextPeriodRaw ? new Date(nextPeriodRaw) : null;
 
-    syncBloomAlerts({ prefs, specialDates, dueDate: due, nextPeriod }).catch(() => {});
-  }, [enabled, settings, dates, pregnancy, period]);
+    syncBloomAlerts({ prefs, specialDates, dueDate: due, nextPeriod })
+      .then(() => syncDailyQuestionAlert(!!coupleQ?.today?.myAnswer))
+      .catch(() => {});
+  }, [enabled, settings, dates, pregnancy, period, coupleQ?.today?.myAnswer]);
 }

@@ -267,11 +267,10 @@ export class RelationshipService {
       };
     };
 
-    const items = COUPLE_QUESTIONS.map(decorate);
     const today = decorate(questionOfTheDay());
 
     return {
-      items,
+      items: [today],
       today,
       total: COUPLE_QUESTIONS.length,
       isPaired: !!partnerId,

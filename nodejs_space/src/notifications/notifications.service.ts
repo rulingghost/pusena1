@@ -100,59 +100,63 @@ export class NotificationsService {
       include: { user: { include: { settings: true } } },
     });
 
-    let sentCount = 0;
+    // Hafta içerikleri bir kez okunur; eskiden her gebelik için ayrı sorgu atılıyordu.
+    const partnerIds = pregnancies.map((p) => p.user?.pairedUserId).filter((id): id is string => !!id);
+    const [weekRows, livePartners] = await Promise.all([
+      this.prisma.pregnancyWeekContent.findMany(),
+      partnerIds.length
+        ? this.prisma.user.findMany({ where: { id: { in: partnerIds } }, select: { id: true } })
+        : Promise.resolve([]),
+    ]);
+    const weekMap = new Map(weekRows.map((w) => [w.weekNumber, w]));
+    // Silinmiş partner kaydına yazmak toplu insert'i tamamen düşürürdü.
+    const partnerExists = new Set(livePartners.map((u) => u.id));
+
+    const rows: Array<{ userId: string; type: string; title: string; body: string; module: string }> = [];
+
     for (const p of pregnancies) {
       if (p.user?.settings?.pregnancyTips === false) continue;
       const diffDays = Math.floor((Date.now() - p.lastMenstrualPeriod.getTime()) / (86400000));
       const week = Math.min(Math.floor(diffDays / 7) + 1, 40);
       const daysRemaining = Math.max(0, 280 - diffDays);
-      const weekContent = await this.prisma.pregnancyWeekContent.findUnique({ where: { weekNumber: week } });
-      const tip = weekContent?.tips?.[Math.floor(Math.random() * (weekContent?.tips?.length || 1))]
-        ?? 'Sağlıklı beslenmeye ve düzenli kontrollerinize dikkat edin.';
-      const babyLetter = (weekContent as any)?.letterFromBaby ||
+      const weekContent = weekMap.get(week);
+      const tips = weekContent?.tips ?? [];
+      const tip = tips.length
+        ? tips[Math.floor(Math.random() * tips.length)]
+        : 'Sağlıklı beslenmeye ve düzenli kontrollerinize dikkat edin.';
+      const babyLetter = weekContent?.letterFromBaby ||
         `Anneciğim bu hafta ${week}. haftama ulaştım! Dünyaya gelmeme yaklaşık ${daysRemaining} gün kaldı, çok heyecanlıyım. Sizleri çok seviyorum 💕`;
 
-      // Notification 1: Pregnancy Tip
-      await this.prisma.notification.create({
-        data: {
-          userId: p.userId,
-          type: 'pregnancy_tip',
-          title: `${week}. Hafta İpucu 🤰`,
-          body: tip,
-          module: 'pregnancy',
-        },
+      rows.push({
+        userId: p.userId,
+        type: 'pregnancy_tip',
+        title: `${week}. Hafta İpucu 🤰`,
+        body: tip,
+        module: 'pregnancy',
       });
-      sentCount++;
-
-      // Notification 2: Baby's Letter to Mom
-      await this.prisma.notification.create({
-        data: {
-          userId: p.userId,
-          type: 'baby_letter',
-          title: `💌 Bebekten Anneye Mesaj (${week}. Hafta)`,
-          body: babyLetter,
-          module: 'pregnancy',
-        },
+      rows.push({
+        userId: p.userId,
+        type: 'baby_letter',
+        title: `💌 Bebekten Anneye Mesaj (${week}. Hafta)`,
+        body: babyLetter,
+        module: 'pregnancy',
       });
-      sentCount++;
 
-      // If user has paired partner, also notify partner!
-      if (p.user?.pairedUserId) {
-        const partner = await this.prisma.user.findUnique({ where: { id: p.user.pairedUserId } });
-        if (partner) {
-          await this.prisma.notification.create({
-            data: {
-              userId: partner.id,
-              type: 'pregnancy_partner_update',
-              title: `👶 Gebelik Güncellemesi: ${week}. Hafta`,
-              body: `${p.user.name || 'Partneriniz'} ${week}. gebelik haftasında! Bebeğinizin büyümesi ve günün ipuçları Pusena'da hazır.`,
-              module: 'pregnancy',
-            },
-          });
-          sentCount++;
-        }
+      if (p.user?.pairedUserId && partnerExists.has(p.user.pairedUserId)) {
+        rows.push({
+          userId: p.user.pairedUserId,
+          type: 'pregnancy_partner_update',
+          title: `👶 Gebelik Güncellemesi: ${week}. Hafta`,
+          body: `${p.user.name || 'Partneriniz'} ${week}. gebelik haftasında! Bebeğinizin büyümesi ve günün ipuçları Pusena'da hazır.`,
+          module: 'pregnancy',
+        });
       }
     }
+
+    if (rows.length) {
+      await this.prisma.notification.createMany({ data: rows, skipDuplicates: true });
+    }
+    const sentCount = rows.length;
     this.logger.log(`Sent ${sentCount} pregnancy tip notifications`);
     return { success: true, sentCount };
   }
@@ -163,9 +167,31 @@ export class NotificationsService {
       include: { user: { include: { settings: true } } },
     });
 
-    let sentCount = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const partnerIds = allDates.map((sd) => sd.user?.pairedUserId).filter((id): id is string => !!id);
+    // Bugün gönderilmiş hatırlatmalar tek sorguda; eskiden özel gün başına bir sorgu atılıyordu.
+    const [sentToday, livePartners] = await Promise.all([
+      this.prisma.notification.findMany({
+        where: { type: 'special_date_reminder', createdAt: { gte: today } },
+        select: { userId: true, referenceId: true },
+      }),
+      partnerIds.length
+        ? this.prisma.user.findMany({ where: { id: { in: partnerIds } }, select: { id: true } })
+        : Promise.resolve([]),
+    ]);
+    const alreadySent = new Set(sentToday.map((n) => `${n.userId}:${n.referenceId}`));
+    const partnerExists = new Set(livePartners.map((u) => u.id));
+
+    const rows: Array<{
+      userId: string;
+      type: string;
+      title: string;
+      body: string;
+      module: string;
+      referenceId: string;
+    }> = [];
 
     for (const sd of allDates) {
       if (sd.user?.settings?.specialDateReminder === false) continue;
@@ -182,45 +208,42 @@ export class NotificationsService {
 
       if (!reminderList.includes(daysUntil)) continue;
 
-      // Check if already notified today
-      const existing = await this.prisma.notification.findFirst({
-        where: { userId: sd.userId, type: 'special_date_reminder', referenceId: sd.id, createdAt: { gte: today } },
-      });
-      if (existing) continue;
+      if (alreadySent.has(`${sd.userId}:${sd.id}`)) continue;
 
       let timeLabel = '';
       if (daysUntil === 0) timeLabel = 'Bugün!';
       else if (daysUntil === 1) timeLabel = 'Yarın!';
-      else if (daysUntil <= 7) timeLabel = `${daysUntil} gün sonra`;
       else timeLabel = `${daysUntil} gün sonra`;
 
-      await this.prisma.notification.create({
-        data: {
-          userId: sd.userId,
-          type: 'special_date_reminder',
-          title: `${sd.title} ${timeLabel} 🎁`,
-          body: `"${sd.title}" özel gününüze ${daysUntil === 0 ? 'bugün' : daysUntil + ' gün'} kaldı.`,
-          module: 'relationship',
-          referenceId: sd.id,
-        },
+      rows.push({
+        userId: sd.userId,
+        type: 'special_date_reminder',
+        title: `${sd.title} ${timeLabel} 🎁`,
+        body: `"${sd.title}" özel gününüze ${daysUntil === 0 ? 'bugün' : daysUntil + ' gün'} kaldı.`,
+        module: 'relationship',
+        referenceId: sd.id,
       });
-      sentCount++;
+      alreadySent.add(`${sd.userId}:${sd.id}`);
 
       // If user is paired with a partner, send reminder to partner too
-      if (sd.user?.pairedUserId) {
-        await this.prisma.notification.create({
-          data: {
-            userId: sd.user.pairedUserId,
-            type: 'special_date_reminder',
-            title: `${sd.title} ${timeLabel} 🎁`,
-            body: `${sd.user.name || 'Partneriniz'} ile "${sd.title}" özel gününüze ${daysUntil === 0 ? 'bugün' : daysUntil + ' gün'} kaldı.`,
-            module: 'relationship',
-            referenceId: sd.id,
-          },
+      const partnerId = sd.user?.pairedUserId;
+      if (partnerId && partnerExists.has(partnerId) && !alreadySent.has(`${partnerId}:${sd.id}`)) {
+        rows.push({
+          userId: partnerId,
+          type: 'special_date_reminder',
+          title: `${sd.title} ${timeLabel} 🎁`,
+          body: `${sd.user?.name || 'Partneriniz'} ile "${sd.title}" özel gününüze ${daysUntil === 0 ? 'bugün' : daysUntil + ' gün'} kaldı.`,
+          module: 'relationship',
+          referenceId: sd.id,
         });
-        sentCount++;
+        alreadySent.add(`${partnerId}:${sd.id}`);
       }
     }
+
+    if (rows.length) {
+      await this.prisma.notification.createMany({ data: rows, skipDuplicates: true });
+    }
+    const sentCount = rows.length;
     this.logger.log(`Sent ${sentCount} special date reminder notifications`);
     return { success: true, sentCount };
   }
@@ -229,47 +252,84 @@ export class NotificationsService {
   async sendPeriodReminders() {
     const users = await this.prisma.user.findMany({
       where: { settings: { periodReminder: true, activeModules: { has: 'period' } } },
-      include: { settings: true },
+      select: { id: true },
     });
+    const userIds = users.map((u) => u.id);
+    if (!userIds.length) return { success: true, sentCount: 0 };
 
-    let sentCount = 0;
-    for (const user of users) {
-      const latestCycle = await this.prisma.periodCycle.findFirst({
-        where: { userId: user.id },
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Döngüler ve bugünkü hatırlatmalar iki sorguda toplanır; eskiden
+    // kullanıcı başına iki ayrı sorgu atılıyordu.
+    const [cycles, sentToday] = await Promise.all([
+      this.prisma.periodCycle.findMany({
+        where: { userId: { in: userIds } },
         orderBy: { startDate: 'desc' },
-      });
+        select: { userId: true, startDate: true, cycleLength: true },
+      }),
+      this.prisma.notification.findMany({
+        where: { userId: { in: userIds }, type: 'period_reminder', createdAt: { gte: today } },
+        select: { userId: true },
+      }),
+    ]);
+
+    const latestByUser = new Map<string, (typeof cycles)[number]>();
+    for (const c of cycles) {
+      if (!latestByUser.has(c.userId)) latestByUser.set(c.userId, c);
+    }
+    const notifiedToday = new Set(sentToday.map((n) => n.userId));
+
+    const rows: Array<{
+      userId: string;
+      type: string;
+      title: string;
+      body: string;
+      module: string;
+      actionType: string | null;
+    }> = [];
+
+    for (const userId of userIds) {
+      if (notifiedToday.has(userId)) continue;
+      const latestCycle = latestByUser.get(userId);
       if (!latestCycle) continue;
 
       const nextPeriodDate = new Date(latestCycle.startDate.getTime() + latestCycle.cycleLength * 86400000);
       const daysUntil = Math.floor((nextPeriodDate.getTime() - Date.now()) / 86400000);
 
-      // Send reminder when period is expected (0 days) or 1 day before
-      if (daysUntil >= -1 && daysUntil <= 1) {
-        // Check if we already sent a reminder today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const existing = await this.prisma.notification.findFirst({
-          where: {
-            userId: user.id,
-            type: 'period_reminder',
-            createdAt: { gte: today },
-          },
-        });
-        if (existing) continue;
+      // 2 gün öncesinden başlayarak uyar; kullanıcı hazırlık yapabilsin.
+      if (daysUntil >= -1 && daysUntil <= 2) {
+        const copy =
+          daysUntil === 2
+            ? {
+                title: 'Regl 2 gün sonra bekleniyor 🩸',
+                body: 'Döngü kaydına göre yaklaşıyor. Hazırlığını şimdiden yapabilirsin.',
+              }
+            : daysUntil === 1
+              ? {
+                  title: 'Yarın regl başlayabilir 🩸',
+                  body: 'Ped/tampon, ağrı kesici ve sıcak su torbanı hazırlamak için iyi bir zaman.',
+                }
+              : {
+                  title: 'Regl Hatırlatma 🩸',
+                  body: 'Regl döneminiz başlamış olabilir. Regl oldunuz mu?',
+                };
 
-        await this.prisma.notification.create({
-          data: {
-            userId: user.id,
-            type: 'period_reminder',
-            title: 'Regl Hatırlatma 🩸',
-            body: 'Regl döneminiz yaklaşıyor veya başlamış olabilir. Regl oldunuz mu?',
-            module: 'period',
-            actionType: 'period_confirm',
-          },
+        rows.push({
+          userId,
+          type: 'period_reminder',
+          title: copy.title,
+          body: copy.body,
+          module: 'period',
+          actionType: daysUntil <= 0 ? 'period_confirm' : null,
         });
-        sentCount++;
       }
     }
+
+    if (rows.length) {
+      await this.prisma.notification.createMany({ data: rows, skipDuplicates: true });
+    }
+    const sentCount = rows.length;
     this.logger.log(`Sent ${sentCount} period reminder notifications`);
     return { success: true, sentCount };
   }

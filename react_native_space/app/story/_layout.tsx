@@ -1,4 +1,10 @@
 import { Stack } from 'expo-router';
+import { PartnerGate } from '@/src/components/PartnerGate';
+
 export default function StoryLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <PartnerGate>
+      <Stack screenOptions={{ headerShown: false }} />
+    </PartnerGate>
+  );
 }

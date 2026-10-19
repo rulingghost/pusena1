@@ -29,7 +29,13 @@ export class PeriodService {
 
     if (!latestCycle) return { currentCycle: null, averageCycleLength: 28 };
 
-    const cycles = await this.prisma.periodCycle.findMany({ where: { userId } });
+    // Ortalama için son 12 döngü yeter; tüm geçmişi çekmek gereksiz.
+    const cycles = await this.prisma.periodCycle.findMany({
+      where: { userId },
+      orderBy: { startDate: 'desc' },
+      take: 12,
+      select: { cycleLength: true },
+    });
     const avgLength = cycles.length > 0
       ? Math.round(cycles.reduce((s, c) => s + c.cycleLength, 0) / cycles.length)
       : 28;

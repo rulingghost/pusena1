@@ -171,34 +171,79 @@ export class CoupleLiveService {
     };
   }
 
-  async sendNudge(userId: string, type: string) {
+  async sendNudge(userId: string, type: string, comment?: string) {
     const meta = NUDGE_CATALOG[type];
     if (!meta) throw new BadRequestException('Geçersiz istek türü');
-    const { partner, myName } = await this.requirePair(userId);
+    const { partner, myName, key } = await this.requirePair(userId);
+    const note = comment?.trim();
+
+    // Çift dokunuş / yavaş ağ yüzünden gelen tekrarları hata yerine sessizce yut.
     const recent = await this.prisma.partnerNudge.findFirst({
       where: {
         fromUserId: userId,
         toUserId: partner.id,
         type,
-        createdAt: { gte: new Date(Date.now() - 2 * 60 * 1000) },
+        createdAt: { gte: new Date(Date.now() - 25 * 1000) },
       },
+      orderBy: { createdAt: 'desc' },
     });
-    if (recent) throw new BadRequestException('Aynı isteği az önce gönderdiniz');
+    if (recent && !note) {
+      return { id: recent.id, type, duplicate: true, ...meta };
+    }
 
     const nudge = await this.prisma.partnerNudge.create({
       data: { fromUserId: userId, toUserId: partner.id, type },
     });
-    await this.prisma.notification.create({
-      data: {
-        userId: partner.id,
-        type: 'partner_nudge',
-        module: 'relationship',
-        title: `${meta.emoji} ${myName} ${meta.body}`,
-        body: 'Yanıt yazabilir veya “şimdi olmaz” diyebilirsiniz.',
-        referenceId: nudge.id,
+    if (note) {
+      await this.prisma.coupleMessage.create({
+        data: { pairKey: key, senderId: userId, body: note, kind: 'nudge_reply', nudgeId: nudge.id },
+      });
+    }
+    void this.prisma.notification
+      .create({
+        data: {
+          userId: partner.id,
+          type: 'partner_nudge',
+          module: 'relationship',
+          title: `${meta.emoji} ${myName} ${meta.body}`,
+          body: note ? note.slice(0, 120) : 'Yanıt yazabilir veya “şimdi olmaz” diyebilirsiniz.',
+          referenceId: nudge.id,
+        },
+      })
+      .catch(() => null);
+    return { id: nudge.id, type, duplicate: false, ...meta };
+  }
+
+  async transferNudgeToChat(userId: string, nudgeId: string) {
+    const { partner, key } = await this.requirePair(userId);
+    const nudge = await this.prisma.partnerNudge.findFirst({
+      where: {
+        id: nudgeId,
+        OR: [
+          { fromUserId: userId, toUserId: partner.id },
+          { fromUserId: partner.id, toUserId: userId },
+        ],
       },
     });
-    return { id: nudge.id, type, ...meta };
+    if (!nudge) throw new NotFoundException('İstek bulunamadı');
+    const meta = NUDGE_CATALOG[nudge.type] || { label: nudge.type, emoji: '💫', body: nudge.type };
+    const replies = await this.prisma.coupleMessage.findMany({
+      where: { pairKey: key, nudgeId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const lines = [
+      `${meta.emoji} ${meta.label} isteği`,
+      ...replies.map((r) => r.body).filter((b) => b.trim()),
+    ];
+    const created = [];
+    for (const body of lines) {
+      created.push(
+        await this.prisma.coupleMessage.create({
+          data: { pairKey: key, senderId: userId, body, kind: 'chat', nudgeId: null },
+        }),
+      );
+    }
+    return { transferred: created.length };
   }
 
   async replyNudge(userId: string, nudgeId: string, body: string) {
@@ -219,16 +264,18 @@ export class CoupleLiveService {
       data: { pairKey: key, senderId: userId, body: text, kind: 'nudge_reply', nudgeId },
     });
     const otherId = nudge.fromUserId === userId ? nudge.toUserId : nudge.fromUserId;
-    await this.prisma.notification.create({
-      data: {
-        userId: otherId,
-        type: 'couple_message',
-        module: 'relationship',
-        title: `${myName} isteğe yanıt verdi`,
-        body: text.slice(0, 120),
-        referenceId: nudge.id,
-      },
-    });
+    void this.prisma.notification
+      .create({
+        data: {
+          userId: otherId,
+          type: 'couple_message',
+          module: 'relationship',
+          title: `${myName} isteğe yanıt verdi`,
+          body: text.slice(0, 120),
+          referenceId: nudge.id,
+        },
+      })
+      .catch(() => null);
     return { id: msg.id, body: msg.body, createdAt: msg.createdAt, fromMe: true };
   }
 
@@ -255,8 +302,23 @@ export class CoupleLiveService {
 
   async listMessages(userId: string) {
     const { partner, key } = await this.requirePair(userId);
+
+    // Sohbeti açan taraf, karşıdan gelen tüm mesajları okumuş sayılır.
+    await this.prisma.coupleMessage
+      .updateMany({
+        where: { pairKey: key, senderId: partner.id, readAt: null },
+        data: { readAt: new Date() },
+      })
+      .catch(() => null);
+    await this.prisma.notification
+      .updateMany({
+        where: { userId, type: { in: ['couple_message', 'partner_nudge'] }, isRead: false },
+        data: { isRead: true },
+      })
+      .catch(() => null);
+
     const items = await this.prisma.coupleMessage.findMany({
-      where: { pairKey: key },
+      where: { pairKey: key, kind: { in: ['chat', 'note'] } },
       orderBy: { createdAt: 'asc' },
       take: 200,
     });
@@ -268,28 +330,40 @@ export class CoupleLiveService {
         kind: m.kind,
         nudgeId: m.nudgeId,
         fromMe: m.senderId === userId,
+        readAt: m.readAt,
         createdAt: m.createdAt,
       })),
     };
   }
 
-  async sendMessage(userId: string, body: string, nudgeId?: string) {
+  async sendMessage(userId: string, body: string, nudgeId?: string, kind?: string) {
     const text = body.trim();
     if (!text) throw new BadRequestException('Mesaj boş olamaz');
     const { partner, key, myName } = await this.requirePair(userId);
+    const resolvedKind = nudgeId ? 'nudge_reply' : kind === 'note' ? 'note' : 'chat';
     const msg = await this.prisma.coupleMessage.create({
-      data: { pairKey: key, senderId: userId, body: text, kind: nudgeId ? 'nudge_reply' : 'chat', nudgeId: nudgeId || null },
+      data: { pairKey: key, senderId: userId, body: text, kind: resolvedKind, nudgeId: nudgeId || null },
     });
-    await this.prisma.notification.create({
-      data: {
-        userId: partner.id,
-        type: 'couple_message',
-        module: 'relationship',
-        title: `${myName} size yazdı`,
-        body: text.slice(0, 120),
-        referenceId: msg.id,
-      },
-    });
-    return { id: msg.id, body: msg.body, kind: msg.kind, fromMe: true, createdAt: msg.createdAt };
+    // Bildirim satırı gönderim yanıtını bekletmesin.
+    void this.prisma.notification
+      .create({
+        data: {
+          userId: partner.id,
+          type: 'couple_message',
+          module: 'relationship',
+          title: `${myName} size yazdı`,
+          body: text.slice(0, 120),
+          referenceId: msg.id,
+        },
+      })
+      .catch(() => null);
+    return {
+      id: msg.id,
+      body: msg.body,
+      kind: msg.kind,
+      fromMe: true,
+      readAt: msg.readAt,
+      createdAt: msg.createdAt,
+    };
   }
 }

@@ -30,6 +30,7 @@ export class InsightsService {
       this.prisma.symptom.findMany({
         where: { userId, date: { gte: new Date(Date.now() - 60 * DAY_MS) } },
         orderBy: { date: 'desc' },
+        take: 200,
       }),
       this.prisma.fertilityAssessment.findUnique({ where: { userId } }),
     ]);

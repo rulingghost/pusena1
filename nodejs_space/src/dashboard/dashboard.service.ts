@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateKey, computeIsPeriodActive } from '../common/dates';
 import { filterModulesForGender } from '../common/gender-modules';
+import { buildDailyTip } from './daily-tips';
 
 @Injectable()
 export class DashboardService {
@@ -19,9 +20,38 @@ export class DashboardService {
     let relationship = null;
     let dailyTip = null;
 
-    if (modules.includes('pregnancy')) {
-      const p = await this.prisma.pregnancy.findUnique({ where: { userId } });
-      if (p) {
+    const now = new Date();
+
+    // Birbirinden bağımsız tüm okumalar tek turda: Render'da her sıralı sorgu
+    // ekrana ~100-200 ms ekliyordu.
+    const [p, cycle, r, nextSD, posts] = await Promise.all([
+      modules.includes('pregnancy')
+        ? this.prisma.pregnancy.findUnique({ where: { userId } })
+        : Promise.resolve(null),
+      modules.includes('period')
+        ? this.prisma.periodCycle.findFirst({ where: { userId }, orderBy: { startDate: 'desc' } })
+        : Promise.resolve(null),
+      this.prisma.relationship.findUnique({ where: { userId } }),
+      this.prisma.specialDate.findFirst({
+        where: { userId, date: { gte: now } },
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.communityPost.findMany({
+        take: 2,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          content: true,
+          likesCount: true,
+          commentsCount: true,
+          createdAt: true,
+          author: { select: { name: true, avatarUrl: true } },
+        },
+      }),
+    ]);
+
+    if (p) {
+      {
         const diffMs = Date.now() - p.lastMenstrualPeriod.getTime();
         const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
         const week = Math.max(1, Math.min(42, Math.floor(totalDays / 7) + 1));
@@ -39,13 +69,12 @@ export class DashboardService {
           babyName: p.babyName,
         };
 
-        dailyTip = { title: 'Gebelik İpucu', content: weekContent?.tips?.[0] ?? 'Sağlıklı beslenmeye dikkat edin.', module: 'pregnancy' };
+        dailyTip = buildDailyTip({ pregnancyWeek: week });
       }
     }
 
-    if (modules.includes('period')) {
-      const cycle = await this.prisma.periodCycle.findFirst({ where: { userId }, orderBy: { startDate: 'desc' } });
-      if (cycle) {
+    if (cycle) {
+      {
         const currentCycleDay = Math.floor((Date.now() - cycle.startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
         const nextPeriod = new Date(cycle.startDate.getTime() + cycle.cycleLength * 24 * 60 * 60 * 1000);
         const daysUntilNext = Math.max(0, Math.ceil((nextPeriod.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
@@ -79,14 +108,17 @@ export class DashboardService {
           cycleLength: cycle.cycleLength,
           periodLength: cycle.periodLength,
         };
-        if (!dailyTip) dailyTip = { title: 'Regl İpucu', content: 'Düzenli egzersiz regl ağrılarını azaltabilir.', module: 'period' };
+        if (!dailyTip) {
+          dailyTip = buildDailyTip({
+            currentCycleDay,
+            cycleLength: cycle.cycleLength,
+            periodLength: cycle.periodLength,
+          });
+        }
       }
     }
 
-    // Always fetch relationship if available, or if module is active
-    const r = await this.prisma.relationship.findUnique({ where: { userId } });
     if (r) {
-      const now = new Date();
       const startDate = new Date(r.startDate);
       const daysTogether = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)));
 
@@ -97,12 +129,6 @@ export class DashboardService {
       }
       const daysUntilAnniversary = Math.max(0, Math.ceil((thisYearAnn.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
       const nextAnniversaryYear = Math.max(1, thisYearAnn.getFullYear() - startDate.getFullYear());
-
-      // Next special date
-      const nextSD = await this.prisma.specialDate.findFirst({
-        where: { userId, date: { gte: now } },
-        orderBy: { date: 'asc' },
-      });
 
       let nextSpecialDate = null;
       if (nextSD) {
@@ -119,15 +145,10 @@ export class DashboardService {
         nextAnniversaryDate: thisYearAnn,
         nextSpecialDate,
       };
-      if (!dailyTip) dailyTip = { title: 'İlişki İpucu 💕', content: 'Partnerinize sevginizi hissettirecek küçük bir mesaj atın.', module: 'relationship' };
+      if (!dailyTip) dailyTip = buildDailyTip({ hasRelationship: true });
     }
 
-    // Recent posts
-    const posts = await this.prisma.communityPost.findMany({
-      take: 2,
-      orderBy: { createdAt: 'desc' },
-      include: { author: { select: { name: true, avatarUrl: true } } },
-    });
+    if (!dailyTip) dailyTip = buildDailyTip({});
 
     return {
       pregnancy, period, relationship, dailyTip,

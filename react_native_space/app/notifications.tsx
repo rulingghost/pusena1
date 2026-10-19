@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,7 +28,10 @@ export default function NotificationsScreen() {
   const male = isMaleUser(user);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data, isLoading, refetch } = useNotificationsControllerGetAll({ page: 1, limit: 50 });
+  const { data, isLoading, refetch } = useNotificationsControllerGetAll(
+    { page: 1, limit: 50 },
+    { query: { refetchInterval: 8000, refetchOnWindowFocus: true, staleTime: 0 } },
+  );
   const { data: pregnancy } = usePregnancyControllerGet({ query: { retry: false } });
   const { data: period } = usePeriodControllerGet({ query: { retry: false } });
   const { data: dates } = useSpecialDatesControllerGetAll({ page: 1, limit: 8 });
@@ -206,11 +209,15 @@ export default function NotificationsScreen() {
 
       <FlatList
         data={data?.items ?? []}
-        keyExtractor={(item) => item?.id ?? Math.random().toString()}
+        keyExtractor={(item, index) => item?.id ?? `notification-${index}`}
         renderItem={renderItem}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
         ListHeaderComponent={
           <View style={{ marginBottom: 12, gap: 8 }}>
             {!male && (pregnancy as any)?.daysRemaining != null && (
@@ -229,14 +236,18 @@ export default function NotificationsScreen() {
                 <Text style={[styles.countdownTitle, { color: colors.text }]}>{d.title}: {d.daysUntil} gün kaldı</Text>
               </View>
             ))}
-            <InsightsCard limit={12} />
+            <InsightsCard limit={2} />
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={{ fontSize: 44, opacity: 0.6 }}>🌸</Text>
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Henüz yeni bildiriminiz yok</Text>
-          </View>
+          isLoading && !data ? (
+            <ActivityIndicator style={{ marginTop: 32 }} color={Colors.primary} />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={{ fontSize: 44, opacity: 0.6 }}>🌸</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Henüz yeni bildiriminiz yok</Text>
+            </View>
+          )
         }
       />
     </View>

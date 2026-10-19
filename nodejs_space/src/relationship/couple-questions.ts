@@ -4,7 +4,7 @@ export interface CoupleQuestion {
   question: string;
 }
 
-export const COUPLE_QUESTIONS: CoupleQuestion[] = [
+const BASE_QUESTIONS: CoupleQuestion[] = [
   // Romantizm & Anılar
   { id: 'q1', category: 'Romantizm & Anılar', question: 'Beni ilk gördüğünde aklından geçen ilk şey neydi?' },
   { id: 'q2', category: 'Romantizm & Anılar', question: 'Birlikte yaşadığımız hangi anı, kötü bir günümde seni gülümsetir?' },
@@ -71,6 +71,73 @@ export const COUPLE_QUESTIONS: CoupleQuestion[] = [
   { id: 'q51', category: 'Ebeveynlik & Aile', question: 'Bebeğimize hangi ismi vermeyi hayal ediyorsun ve neden?' },
   { id: 'q52', category: 'Ebeveynlik & Aile', question: 'Çocukluğundan bize taşımak istediğin bir gelenek var mı?' },
 ];
+
+const EXTRA_STEMS: Array<{ category: string; question: string }> = [
+  { category: 'Romantizm & Anılar', question: 'Seni ilk öptüğümde aklından ne geçti?' },
+  { category: 'Romantizm & Anılar', question: 'Birlikte dinlediğimiz hangi şarkı bizi anlatır?' },
+  { category: 'Romantizm & Anılar', question: 'Bana hiç anlatmadığın, tanışmadan önceki küçük bir sırrın var mı?' },
+  { category: 'Romantizm & Anılar', question: 'İlk evimizde en çok hangi köşeyi sevdin?' },
+  { category: 'Romantizm & Anılar', question: 'Yağmurlu bir günde birlikte ne yapmak isterdin?' },
+  { category: 'Gelecek & Hayaller', question: 'Birlikte açmak istediğin küçük bir iş var mı?' },
+  { category: 'Gelecek & Hayaller', question: 'On yıl sonra kahvaltılarımız nasıl olsun?' },
+  { category: 'Gelecek & Hayaller', question: 'Birlikte yazmak istediğin bir kitap konusu ne olurdu?' },
+  { category: 'Gelecek & Hayaller', question: 'Hangi şehri “ikinci evimiz” yapmak isterdin?' },
+  { category: 'Sevgi Dili & Teşekkür', question: 'Sessiz kaldığımda bunu nasıl yorumluyorsun?' },
+  { category: 'Sevgi Dili & Teşekkür', question: 'Sana “yanındayım” dememin en iyi yolu ne?' },
+  { category: 'Sevgi Dili & Teşekkür', question: 'Küçük jestlerden hangisi gününü kurtarır?' },
+  { category: 'Eğlenceli & Çılgın', question: 'Beraber izlediğimiz en kötü film hangisiydi?' },
+  { category: 'Eğlenceli & Çılgın', question: 'Sabah insanı mısın, gece kuşu mu? Beni nasıl tanımlarsın?' },
+  { category: 'Eğlenceli & Çılgın', question: 'Bir kostüm partisine gitsek ne giyeriz?' },
+  { category: 'İletişim & Derinlik', question: 'Tartışmadan sonra barışmak için ilk adımı kim atsın istersin?' },
+  { category: 'İletişim & Derinlik', question: 'Seni dinlemediğimi hissettiğin bir an oldu mu?' },
+  { category: 'İletişim & Derinlik', question: 'Ailemizle bir sınır koymamızı istediğin konu var mı?' },
+  { category: 'Sağlık & Farkındalık', question: 'Birlikte yürüyüşe çıksak hangi saati tercih edersin?' },
+  { category: 'Sağlık & Farkındalık', question: 'Telefonsuz bir akşamı nasıl geçirmek isterdin?' },
+  { category: 'Sağlık & Farkındalık', question: 'Yorgunluğumu nasıl daha erken fark edebilirim?' },
+  { category: 'Ebeveynlik & Aile', question: 'Çocuğumuza hangi masalı okumak isterdin?' },
+  { category: 'Ebeveynlik & Aile', question: 'Büyüklerimizden almak istemediğin bir alışkanlık var mı?' },
+  { category: 'Romantizm & Anılar', question: 'Sana yazdığım notlardan hangisi aklında kaldı?' },
+  { category: 'Gelecek & Hayaller', question: 'Bir yıl boyunca her ay yeni bir şey denesek, ilk ne olsun?' },
+  { category: 'Sevgi Dili & Teşekkür', question: 'Bugün benden duyunca içinin ısınacağı cümle ne?' },
+  { category: 'Eğlenceli & Çılgın', question: 'Beraber oynadığımız en komik oyun hangisiydi?' },
+  { category: 'İletişim & Derinlik', question: 'Kırıldığında benden uzaklaşmak mı, konuşmak mı istersin?' },
+  { category: 'Sağlık & Farkındalık', question: 'Uyku saati konusunda benden ne bekliyorsun?' },
+  { category: 'Ebeveynlik & Aile', question: 'Çocuğumuza öğretmek istediğin ilk ev kuralı ne olurdu?' },
+];
+
+const PREFIXES = [
+  '',
+  'Dürüstçe söyle: ',
+  'Bir cümleyle: ',
+  'Bugün aklına gelen haliyle: ',
+  'Acele etmeden düşün: ',
+  'Gülümseyerek cevapla: ',
+  'Kalbinden geleni söyle: ',
+  'Kısa tutarak: ',
+  'Bu akşam konuşsak: ',
+  'İçinden geleni yaz: ',
+  'Şaka olmadan: ',
+];
+
+function buildYearQuestions(): CoupleQuestion[] {
+  const out: CoupleQuestion[] = [...BASE_QUESTIONS];
+  let n = out.length + 1;
+  let extra = 0;
+  while (out.length < 365) {
+    const stem = EXTRA_STEMS[extra % EXTRA_STEMS.length];
+    const prefix = PREFIXES[Math.floor(extra / EXTRA_STEMS.length) % PREFIXES.length];
+    const question = `${prefix}${stem.question}`.replace(/^ +/, '');
+    if (!out.some((q) => q.question === question)) {
+      out.push({ id: `q${n}`, category: stem.category, question });
+      n += 1;
+    }
+    extra += 1;
+    if (extra > 2000) break;
+  }
+  return out;
+}
+
+export const COUPLE_QUESTIONS = buildYearQuestions();
 
 export function questionOfTheDay(seed = new Date()): CoupleQuestion {
   const dayIndex = Math.floor(

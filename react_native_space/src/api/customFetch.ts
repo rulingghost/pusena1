@@ -34,7 +34,13 @@ export function getErrorMessage(e: unknown, fallback = 'Bir hata oluştu'): stri
     if (Array.isArray(msg)) return msg.map(String).filter(Boolean).join('\n') || fallback;
     return e.message || fallback;
   }
-  if (e instanceof Error) return e.message;
+  if (e instanceof Error) {
+    const msg = e.message || '';
+    if (/network request failed|failed to fetch|networkerror|aborted/i.test(msg)) {
+      return 'Sunucuya ulaşılamadı. İnternetinizi kontrol edin; ilk açılış 30 sn sürebilir.';
+    }
+    return msg;
+  }
   return fallback;
 }
 
@@ -116,8 +122,14 @@ async function executeFetch<T>(fullUrl: string, options: RequestInit, token: str
   }
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(fullUrl, { ...options, headers });
-  return parseResponse<T>(response);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45_000);
+  try {
+    const response = await fetch(fullUrl, { ...options, headers, signal: controller.signal });
+    return await parseResponse<T>(response);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function customFetch<T>(

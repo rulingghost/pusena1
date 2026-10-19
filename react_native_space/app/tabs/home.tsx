@@ -15,8 +15,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import { AppImages } from '@/src/theme/images';
-import { BrandLogo } from '@/src/components/BrandLogo';
 import { useDashboardControllerGetDashboard, useNotificationsControllerUnreadCount, usePeriodControllerStart, useSettingsControllerGetSettings } from '@/src/api/generated/api';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -26,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { customFetch, getErrorMessage } from '@/src/api/customFetch';
 import { localDateKey } from '@/src/utils/dateOnly';
 import { useQueryClient } from '@tanstack/react-query';
+import { resolveMediaUrl } from '@/src/utils/mediaUrl';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -47,9 +46,9 @@ export default function HomeScreen() {
   const activeModules = filterModulesForGender(settingsData?.activeModules ?? [], user?.gender);
 
   const MODULE_DEFS = [
-    { id: 'period' as const, label: 'Regl & Döngü', icon: 'flower' as const, color: Colors.floPink },
-    { id: 'pregnancy' as const, label: 'Gebelik', icon: 'happy' as const, color: Colors.pregnancy },
-    { id: 'relationship' as const, label: 'İlişki & Biz', icon: 'heart' as const, color: Colors.relationship },
+    { id: 'period' as const, label: 'Döngü', icon: 'water' as const, color: Colors.floPink },
+    { id: 'pregnancy' as const, label: 'Gebelik', icon: 'leaf' as const, color: Colors.pregnancy },
+    { id: 'relationship' as const, label: 'İlişki', icon: 'heart' as const, color: Colors.relationship },
   ];
   const visibleModules = MODULE_DEFS.filter(m => activeModules.includes(m.id));
 
@@ -90,10 +89,10 @@ export default function HomeScreen() {
           method: 'POST',
           body: JSON.stringify({ date: todayStr }),
         });
-        Alert.alert('Regl Tamamlandı ✓', 'Adet döneminiz tamamlandı olarak kaydedildi.');
+        Alert.alert('Kaydedildi', 'Adet dönemi tamamlandı.');
       } else {
         await startPeriodMutation.mutateAsync({ data: { date: todayStr } });
-        Alert.alert('Regl Başlangıcı Kaydedildi 🩸', 'Döngünüz bugün başladı olarak sisteme işlendi.');
+        Alert.alert('Kaydedildi', 'Adet dönemi bugün başladı.');
       }
       await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/period'] });
@@ -162,52 +161,46 @@ export default function HomeScreen() {
       : 'Döngü Takibiniz';
 
   const fertilityLabel = isPeriodActive
-    ? 'Adet dönemi — dinlenmeye öncelik verin'
+    ? 'Adet dönemi'
     : daysUntilOvulation <= 3
-      ? 'Gebe Kalma Şansı: Yüksek'
+      ? 'Doğurganlık yüksek'
       : daysUntilOvulation <= 7
-        ? 'Gebe Kalma Şansı: Orta'
-        : 'Gebe Kalma Şansı: Düşük';
+        ? 'Doğurganlık orta'
+        : 'Doğurganlık düşük';
+  const firstName = (user?.name || 'Merhaba').split(' ')[0];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Header Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <Pressable
-          style={[styles.avatarBtn, { backgroundColor: colors.accentLight }]}
+          style={[styles.avatarBtn, { backgroundColor: colors.accentLight, overflow: 'hidden' }]}
           onPress={() => router.push('/tabs/profile')}
         >
-          <Ionicons name="person" size={18} color={colors.accent} />
+          {user?.avatarUrl ? (
+            <Image source={{ uri: resolveMediaUrl(user.avatarUrl) }} style={{ width: 38, height: 38 }} />
+          ) : (
+            <Ionicons name="person" size={18} color={colors.accent} />
+          )}
         </Pressable>
 
         <View style={styles.topBarCenter}>
-          <BrandLogo size={34} />
-          <Text style={[styles.topBarDate, { color: colors.text }]}>{monthName}</Text>
+          <Text style={[styles.hello, { color: colors.text }]}>{firstName}</Text>
+          <Text style={[styles.topBarDate, { color: colors.textMuted }]}>{monthName}</Text>
         </View>
 
         <View style={styles.topBarRight}>
-          {/* Messages / AI Assistant Icon (Moved from tab bar to header) */}
           <Pressable
-            style={[styles.iconBtn, { backgroundColor: isDark ? colors.card : '#F3F4F6' }]}
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
             onPress={() => router.push('/tabs/messages')}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.accent} />
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.text} />
           </Pressable>
-
-          {!male && (
           <Pressable
-            style={[styles.iconBtn, { backgroundColor: isDark ? colors.card : '#F3F4F6' }]}
-            onPress={() => router.push('/period/history')}
-          >
-            <Ionicons name="calendar-outline" size={20} color={colors.text} />
-          </Pressable>
-          )}
-
-          <Pressable
-            style={[styles.iconBtn, { backgroundColor: isDark ? colors.card : '#F3F4F6' }]}
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
             onPress={() => router.push('/notifications')}
           >
-            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+            <Ionicons name="notifications-outline" size={18} color={colors.text} />
             {unreadCount > 0 && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -299,35 +292,16 @@ export default function HomeScreen() {
         {activeModule === 'period' && activeModules.includes('period') && (
           <View style={{ gap: 14 }}>
             {/* Cycle Status Hero Card */}
-            <View style={[styles.heroStatusCard, { backgroundColor: isDark ? '#2D1828' : '#FFF0F6', borderColor: Colors.floPink + '30' }]}>
-              <View style={styles.heroCenterContent}>
-                <Image source={AppImages.cycleHormoneFlow} style={styles.heroImageBanner} resizeMode="cover" />
-                <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                  {isPeriodActive ? 'Adet Dönemi Aktif 🩸' : 'Tahmini Doğurganlık Penceresi'}
-                </Text>
-                <Text style={[styles.heroMainBig, { color: isPeriodActive ? Colors.floPink : colors.text }]}>
-                  {periodHeroTitle}
-                </Text>
-                <View style={styles.ovulationTagRow}>
-                  <Ionicons name="sparkles" size={16} color={Colors.floTeal} />
-                  <Text style={[styles.ovulationTagText, { color: Colors.floTeal }]}>
-                    {fertilityLabel}
-                  </Text>
-                </View>
-              </View>
-
-              {/* "Regl Oldum / Regl Bitti" Critical Action Button */}
+            <View style={[styles.heroStatusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.heroKicker, { color: colors.textMuted }]}>{fertilityLabel}</Text>
+              <Text style={[styles.heroMainBig, { color: colors.text }]}>{periodHeroTitle}</Text>
               <Pressable
-                style={[
-                  styles.periodActionBtn,
-                  { backgroundColor: isPeriodActive ? Colors.floTeal : Colors.floPink },
-                ]}
+                style={[styles.periodActionBtn, { backgroundColor: isPeriodActive ? Colors.floTeal : colors.accent }]}
                 onPress={handleTogglePeriod}
                 disabled={periodActionLoading || startPeriodMutation.isPending}
               >
-                <Ionicons name={isPeriodActive ? 'checkmark-circle' : 'water'} size={20} color="#FFFFFF" />
                 <Text style={styles.periodActionBtnText}>
-                  {isPeriodActive ? '✓ Regl Bitti (Döngüyü Kapat)' : '🩸 Regl Oldum (Bugün Başladı)'}
+                  {isPeriodActive ? 'Regl bitti' : 'Regl başladı'}
                 </Text>
               </Pressable>
             </View>
@@ -335,8 +309,8 @@ export default function HomeScreen() {
             {/* Period Quick Action Shortcuts */}
             <View style={styles.modeToolsGrid}>
               {[
-                { title: 'Semptom kaydet', sub: 'Bugünkü notunuz', icon: 'clipboard', route: '/period/symptoms', color: Colors.floPink },
-                { title: 'Döngü takvimi', sub: 'Tüm aylar', icon: 'calendar', route: '/period', color: Colors.floTeal },
+                { title: 'Semptom', sub: 'Bugün', icon: 'clipboard-outline', route: '/period/symptoms', color: Colors.floPink },
+                { title: 'Takvim', sub: 'Aylar', icon: 'calendar-outline', route: '/period', color: Colors.floTeal },
               ].map((t, idx) => (
                 <Pressable
                   key={idx}
@@ -359,30 +333,21 @@ export default function HomeScreen() {
         {/* ---------------------------------------------------- */}
         {activeModule === 'pregnancy' && activeModules.includes('pregnancy') && (
           <View style={{ gap: 14 }}>
-            <View style={[styles.heroStatusCard, { backgroundColor: isDark ? '#2D2214' : '#FFF9F0', borderColor: Colors.pregnancy + '40' }]}>
-              <View style={styles.heroCenterContent}>
-                <Image source={AppImages.babySleepingClouds} style={styles.heroImageBanner} resizeMode="cover" />
-                <View style={[styles.pregnancyBadge, { backgroundColor: Colors.pregnancy + '20' }]}>
-                  <Ionicons name="sparkles" size={14} color={Colors.pregnancy} />
-                  <Text style={[styles.pregnancyBadgeText, { color: Colors.pregnancy }]}>
-                    {String(pregnancy?.currentWeek || 14)}. Hafta Gebelik
-                  </Text>
-                </View>
-
-                <Text style={[styles.heroMainNumber, { color: colors.text }]}>
-                  {pregnancy?.babyName ? `${pregnancy.babyName} Bebeğin Doğumuna` : 'Bebeğin Doğumuna'}
-                </Text>
-                <Text style={[styles.heroMainHighlight, { color: Colors.pregnancy }]}>
-                  {String(pregnancy?.daysRemaining ?? '-')} Gün Kaldı 💕
-                </Text>
-              </View>
-
+            <View style={[styles.heroStatusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.heroKicker, { color: colors.textMuted }]}>
+                {String(pregnancy?.currentWeek || '—')}. hafta
+              </Text>
+              <Text style={[styles.heroMainBig, { color: colors.text }]}>
+                {String(pregnancy?.daysRemaining ?? '—')} gün
+              </Text>
+              <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+                {pregnancy?.babyName ? `${pregnancy.babyName} için tahmini doğuma` : 'Tahmini doğuma'}
+              </Text>
               <Pressable
                 style={[styles.periodActionBtn, { backgroundColor: Colors.pregnancy }]}
                 onPress={() => router.push('/pregnancy')}
               >
-                <Ionicons name="happy" size={20} color="#FFFFFF" />
-                <Text style={styles.periodActionBtnText}>Gebelik Merkezine Git</Text>
+                <Text style={styles.periodActionBtnText}>Gebelik</Text>
               </Pressable>
             </View>
 
@@ -413,38 +378,20 @@ export default function HomeScreen() {
         {/* ---------------------------------------------------- */}
         {activeModule === 'relationship' && activeModules.includes('relationship') && (
           <View style={{ gap: 14 }}>
-            <View style={[styles.heroStatusCard, { backgroundColor: isDark ? '#152028' : colors.accentLight, borderColor: colors.relationship + '30' }]}>
-              <View style={styles.heroCenterContent}>
-                <Image source={AppImages.coupleRomanticHug} style={styles.heroImageBanner} resizeMode="cover" />
-                <View style={[styles.pregnancyBadge, { backgroundColor: Colors.relationship + '15' }]}>
-                  <Ionicons name="heart" size={14} color={Colors.relationship} />
-                  <Text style={[styles.pregnancyBadgeText, { color: Colors.relationship }]}>
-                    Bizim Hikâyemiz 💕
-                  </Text>
-                </View>
-
-                <Text style={[styles.heroMainBig, { color: Colors.relationship }]}>
-                  {String(relationship?.daysTogether ?? 0)} Gün
-                </Text>
-                <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-                  Birlikte sevgi dolu anlar biriktiriyoruz
-                </Text>
-
-                <View style={styles.ovulationTagRow}>
-                  <Ionicons name="calendar-outline" size={16} color={Colors.relationship} />
-                  <Text style={[styles.ovulationTagText, { color: Colors.relationship }]}>
-                    {relationship?.daysUntilAnniversary != null
-                      ? `${relationship.nextAnniversaryYear}. Yıldönümüne: ${relationship.daysUntilAnniversary} Gün`
-                      : 'Yaklaşan özel gün yok'}
-                  </Text>
-                </View>
-              </View>
-
+            <View style={[styles.heroStatusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.heroKicker, { color: colors.textMuted }]}>Birlikte</Text>
+              <Text style={[styles.heroMainBig, { color: colors.text }]}>
+                {String(relationship?.daysTogether ?? 0)} gün
+              </Text>
+              <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+                {relationship?.daysUntilAnniversary != null
+                  ? `Yıldönümüne ${relationship.daysUntilAnniversary} gün`
+                  : 'Özel gün ekleyebilirsiniz'}
+              </Text>
               <Pressable
-                style={[styles.periodActionBtn, { backgroundColor: Colors.relationship }]}
+                style={[styles.periodActionBtn, { backgroundColor: colors.relationship }]}
                 onPress={() => router.push('/tabs/story')}
               >
-                <Ionicons name="people" size={20} color="#FFFFFF" />
                 <Text style={styles.periodActionBtnText}>Partner</Text>
               </Pressable>
             </View>
@@ -452,8 +399,8 @@ export default function HomeScreen() {
             {/* Couple Quick Tools Grid */}
             <View style={styles.modeToolsGrid}>
               {[
-                { title: 'Özel sohbet', sub: 'Sadece ikiniz', icon: 'chatbubble-ellipses', route: '/story/couple-chat', color: Colors.relationship },
-                { title: 'Partner bağla', sub: 'Kod ile eşleş', icon: 'link', route: '/tabs/story', color: Colors.floTeal },
+                { title: 'Sohbet', sub: 'Çift', icon: 'chatbubble-ellipses-outline', route: '/story/couple-chat', color: Colors.relationship },
+                { title: 'Bağlan', sub: 'Kod', icon: 'link-outline', route: '/tabs/story', color: Colors.floTeal },
               ].map((t, idx) => (
                 <Pressable
                   key={idx}
@@ -477,10 +424,12 @@ export default function HomeScreen() {
           <View style={[styles.tipCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.tipHeader}>
               <Ionicons name="bulb-outline" size={18} color={colors.accent} />
-              <Text style={[styles.tipTitle, { color: colors.text }]}>Günün Sağlık İpucu</Text>
+              <Text style={[styles.tipTitle, { color: colors.text }]}>
+                {String(dailyTip?.title ?? 'Günün sağlık ipucu')}
+              </Text>
             </View>
             <Text style={[styles.tipBody, { color: colors.textSecondary }]}>
-              {String(dailyTip?.content ?? dailyTip?.title ?? 'Yeterli su tüketimi ve hafif yürüyüşler döngü konforunuzu artırır.')}
+              {String(dailyTip?.content ?? 'Su, uyku ve kısa yürüyüş çoğu günde en güvenli üçlüdür.')}
             </Text>
           </View>
         )}
@@ -495,8 +444,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10 },
   avatarBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  topBarCenter: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  topBarDate: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  topBarCenter: { flex: 1, marginLeft: 10 },
+  hello: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  topBarDate: { fontSize: 12, fontWeight: '600', marginTop: 1 },
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   unreadBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: Colors.danger, borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
@@ -511,17 +461,10 @@ const styles = StyleSheet.create({
   calDayName: { fontSize: 10, fontWeight: '600', marginBottom: 4 },
   calDayBubble: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   calDayNum: { fontSize: 13, fontWeight: '700' },
-  heroStatusCard: { padding: 18, borderRadius: 24, borderWidth: 1, alignItems: 'center', overflow: 'hidden' },
-  heroCenterContent: { alignItems: 'center', marginBottom: 14, width: '100%' },
-  heroImageBanner: { width: '100%', height: 110, borderRadius: 16, marginBottom: 12 },
-  pregnancyBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, marginBottom: 8 },
-  pregnancyBadgeText: { fontSize: 12, fontWeight: '800' },
-  heroSubtitle: { fontSize: 13, marginTop: 4 },
-  heroMainBig: { fontSize: 36, fontWeight: '900', letterSpacing: -1, marginVertical: 4 },
-  heroMainNumber: { fontSize: 16, fontWeight: '700' },
-  heroMainHighlight: { fontSize: 24, fontWeight: '900', marginTop: 4 },
-  ovulationTagRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  ovulationTagText: { fontSize: 12.5, fontWeight: '700' },
+  heroStatusCard: { padding: 20, borderRadius: 20, borderWidth: 1 },
+  heroKicker: { fontSize: 12, fontWeight: '700', letterSpacing: 0.2, textTransform: 'uppercase' },
+  heroSubtitle: { fontSize: 13, marginTop: 2, marginBottom: 14 },
+  heroMainBig: { fontSize: 32, fontWeight: '800', letterSpacing: -0.8, marginVertical: 6 },
   periodActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', paddingVertical: 14, borderRadius: 18 },
   periodActionBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   modeToolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

@@ -145,17 +145,39 @@ export class CommunityService {
 
   async toggleLike(userId: string, postId: string) {
     const existing = await this.prisma.postLike.findUnique({ where: { userId_postId: { userId, postId } } });
+
+    // Beğeni satırı ile sayaç tek işlemde değişmeli; aksi halde hızlı çift
+    // dokunuşta sayaç gerçek beğeni sayısından sapıyordu.
     if (existing) {
-      await this.prisma.postLike.delete({ where: { id: existing.id } });
-      await this.prisma.communityPost.update({ where: { id: postId }, data: { likesCount: { decrement: 1 } } });
-      const updated = await this.prisma.communityPost.findUnique({ where: { id: postId } });
-      return { liked: false, likesCount: updated?.likesCount ?? 0 };
-    } else {
-      await this.prisma.postLike.create({ data: { userId, postId } });
-      await this.prisma.communityPost.update({ where: { id: postId }, data: { likesCount: { increment: 1 } } });
-      const updated = await this.prisma.communityPost.findUnique({ where: { id: postId } });
-      await this.notifyPostAuthorOfLike(userId, postId);
-      return { liked: true, likesCount: updated?.likesCount ?? 0 };
+      const [, updated] = await this.prisma.$transaction([
+        this.prisma.postLike.delete({ where: { id: existing.id } }),
+        this.prisma.communityPost.update({
+          where: { id: postId },
+          data: { likesCount: { decrement: 1 } },
+          select: { likesCount: true },
+        }),
+      ]);
+      return { liked: false, likesCount: Math.max(0, updated.likesCount) };
+    }
+
+    try {
+      const [, updated] = await this.prisma.$transaction([
+        this.prisma.postLike.create({ data: { userId, postId } }),
+        this.prisma.communityPost.update({
+          where: { id: postId },
+          data: { likesCount: { increment: 1 } },
+          select: { likesCount: true },
+        }),
+      ]);
+      void this.notifyPostAuthorOfLike(userId, postId).catch(() => null);
+      return { liked: true, likesCount: updated.likesCount };
+    } catch {
+      // Eşzamanlı ikinci istek unique kısıtına takıldı; mevcut durumu döndür.
+      const post = await this.prisma.communityPost.findUnique({
+        where: { id: postId },
+        select: { likesCount: true },
+      });
+      return { liked: true, likesCount: post?.likesCount ?? 0 };
     }
   }
 
@@ -284,8 +306,21 @@ export class CommunityService {
     const myWeek = pregnancyWeek(me?.pregnancy);
     const myModules = new Set(me?.settings?.activeModules ?? []);
 
+    // Arama varsa süzmeyi veritabanına bırak; tüm havuzu çekip bellekte
+    // skorlamak Render'da her tuş vuruşunda saniyeler alıyordu.
     const pool = await this.prisma.user.findMany({
-      where: { id: { notIn: [...blockedIds, userId] } },
+      where: {
+        id: { notIn: [...blockedIds, userId] },
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' as const } },
+                { nickname: { contains: q, mode: 'insensitive' as const } },
+                { biography: { contains: q, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -298,7 +333,7 @@ export class CommunityService {
         pregnancy: { select: { isActive: true, lastMenstrualPeriod: true } },
         _count: { select: { posts: true, followers: true } },
       },
-      take: 250,
+      take: q ? 100 : 150,
     });
 
     const scored = pool
@@ -463,6 +498,7 @@ export class CommunityService {
           comments: {
             include: { author: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
             orderBy: { createdAt: 'asc' },
+            take: 50,
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -569,11 +605,13 @@ export class CommunityService {
           where: { followingId: targetUserId },
           include: { follower: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
           orderBy: { createdAt: 'desc' },
+          take: 200,
         })
       : await this.prisma.follow.findMany({
           where: { followerId: targetUserId },
           include: { following: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
           orderBy: { createdAt: 'desc' },
+          take: 200,
         });
 
     const users = rows.map(r => (kind === 'followers' ? (r as any).follower : (r as any).following));

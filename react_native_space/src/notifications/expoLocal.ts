@@ -12,6 +12,8 @@ import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotifica
 import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
 import getAllScheduledNotificationsAsync from 'expo-notifications/build/getAllScheduledNotificationsAsync';
 import setNotificationChannelAsync from 'expo-notifications/build/setNotificationChannelAsync';
+import getPresentedNotificationsAsync from 'expo-notifications/build/getPresentedNotificationsAsync';
+import dismissNotificationAsync from 'expo-notifications/build/dismissNotificationAsync';
 import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
 import {
   AndroidImportance,
@@ -40,6 +42,8 @@ export const Notifications = {
   cancelScheduledNotificationAsync,
   getAllScheduledNotificationsAsync,
   setNotificationChannelAsync,
+  getPresentedNotificationsAsync,
+  dismissNotificationAsync,
   SchedulableTriggerInputTypes,
   AndroidImportance,
   AndroidNotificationVisibility,
@@ -53,6 +57,8 @@ export {
   cancelScheduledNotificationAsync,
   getAllScheduledNotificationsAsync,
   setNotificationChannelAsync,
+  getPresentedNotificationsAsync,
+  dismissNotificationAsync,
   SchedulableTriggerInputTypes,
   AndroidImportance,
   AndroidNotificationVisibility,

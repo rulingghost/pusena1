@@ -1,8 +1,35 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authControllerLogin, authControllerSignup, authControllerGetMe, authControllerLogout } from '@/src/api/generated/api';
 import { tryRefreshTokens, clearAuthTokens } from '@/src/api/customFetch';
+import { clearQueryCache } from '@/src/api/queryPersist';
 import type { UserResponseDto } from '@/src/api/generated/schemas';
+
+const USER_CACHE_KEY = 'cached_auth_user';
+
+function safeParseUser(raw: string | null): UserResponseDto | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as UserResponseDto;
+  } catch {
+    return null;
+  }
+}
+
+/** Sunucu avatarı boş dönerse önbellekteki fotoğrafı koru. */
+function mergeKeepAvatar(next: UserResponseDto | null, prev: UserResponseDto | null) {
+  if (!next) return null;
+  if (!next.avatarUrl && prev?.avatarUrl) return { ...next, avatarUrl: prev.avatarUrl };
+  return next;
+}
+
+async function cacheUser(user: UserResponseDto | null) {
+  if (user) {
+    await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(user)).catch(() => {});
+  } else {
+    await AsyncStorage.removeItem(USER_CACHE_KEY).catch(() => {});
+  }
+}
 
 interface AuthContextType {
   user: UserResponseDto | null;
@@ -19,6 +46,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setAuthFromCallback: (token: string, refreshToken: string, user: UserResponseDto) => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateUser: (partial: Partial<UserResponseDto>) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -30,6 +58,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   setAuthFromCallback: async () => {},
   refreshUser: async () => {},
+  updateUser: () => {},
 });
 
 export function useAuth() {
@@ -42,21 +71,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUser = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
+      const [token, cached] = await Promise.all([
+        AsyncStorage.getItem('auth_token'),
+        AsyncStorage.getItem(USER_CACHE_KEY),
+      ]);
+      const prevCached = safeParseUser(cached);
+      if (prevCached) {
+        // Önbellekteki kullanıcıyı hemen göster, doğrulamayı arkada yap.
+        setUser(prevCached);
+        setIsLoading(false);
+      }
       if (!token) {
+        setUser(null);
+        await cacheUser(null);
         setIsLoading(false);
         return;
       }
       try {
         const data = await authControllerGetMe();
-        setUser(data?.user ?? null);
+        const merged = mergeKeepAvatar(data?.user ?? null, prevCached);
+        setUser(merged);
+        await cacheUser(merged);
       } catch {
         const refreshed = await tryRefreshTokens();
         if (refreshed) {
           const data = await authControllerGetMe();
-          setUser(data?.user ?? null);
+          const merged = mergeKeepAvatar(data?.user ?? null, prevCached);
+          setUser(merged);
+          await cacheUser(merged);
         } else {
           await clearAuthTokens();
+          await cacheUser(null);
           setUser(null);
         }
       }
@@ -74,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem('auth_token', data.token);
     await AsyncStorage.setItem('refresh_token', data.refreshToken);
     setUser(data.user);
+    await cacheUser(data.user);
   }, []);
 
   const signup = useCallback(async (
@@ -95,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem('auth_token', data.token);
     await AsyncStorage.setItem('refresh_token', data.refreshToken);
     setUser(data.user);
+    await cacheUser(data.user);
   }, []);
 
   const logout = useCallback(async () => {
@@ -105,6 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } finally {
       await clearAuthTokens();
+      await cacheUser(null);
+      await clearQueryCache();
       setUser(null);
     }
   }, []);
@@ -113,29 +162,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem('auth_token', token);
     await AsyncStorage.setItem('refresh_token', refreshToken);
     setUser(userData);
+    await cacheUser(userData);
   }, []);
+
+  const userRef = useRef<UserResponseDto | null>(null);
+  userRef.current = user;
 
   const refreshUser = useCallback(async () => {
     try {
       const data = await authControllerGetMe();
-      setUser(data?.user ?? null);
-    } catch {}
+      const next = mergeKeepAvatar(data?.user ?? null, userRef.current);
+      setUser(next);
+      await cacheUser(next);
+    } catch {
+      /* çevrimdışı olabiliriz; önbellekteki kullanıcı geçerli kalsın */
+    }
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        signup,
-        logout,
-        setAuthFromCallback,
-        refreshUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const updateUser = useCallback((partial: Partial<UserResponseDto>) => {
+    const prev = userRef.current;
+    if (!prev) return;
+    const next = { ...prev, ...partial };
+    setUser(next);
+    void cacheUser(next);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated: !!user,
+      isLoading,
+      login,
+      signup,
+      logout,
+      setAuthFromCallback,
+      refreshUser,
+      updateUser,
+    }),
+    [user, isLoading, login, signup, logout, setAuthFromCallback, refreshUser, updateUser],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

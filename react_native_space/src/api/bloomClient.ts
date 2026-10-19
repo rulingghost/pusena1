@@ -327,10 +327,11 @@ export function usePartnerGuide() {
   });
 }
 
-export function useCoupleQuestions() {
+export function useCoupleQuestions(enabled = true) {
   return useQuery({
     queryKey: ['relationship', 'coupleQuestions'],
     queryFn: () => customFetch<CoupleQuestionsPack>('/api/relationship/couple-questions'),
+    enabled,
   });
 }
 
@@ -349,6 +350,7 @@ export function useSaveCoupleAnswer() {
 export function usePartnerInfo() {
   return useQuery({
     queryKey: ['partner-info'],
+    staleTime: 60_000,
     queryFn: () =>
       customFetch<{
         partnerCode: string | null;
@@ -400,7 +402,8 @@ export function useCoupleLocation(enabled = true) {
     queryKey: ['relationship', 'location'],
     queryFn: () => customFetch<CoupleLocationState>('/api/relationship/live/location'),
     enabled,
-    refetchInterval: 30_000,
+    retry: false,
+    refetchInterval: enabled ? 45_000 : false,
   });
 }
 
@@ -425,25 +428,68 @@ export interface CoupleNudge {
   replies: Array<{ id: string; body: string; fromMe: boolean; createdAt: string }>;
 }
 
+type NudgeData = {
+  catalog: Array<{ id: string; label: string; emoji: string; body: string }>;
+  items: CoupleNudge[];
+};
+
+const NUDGES_KEY = ['relationship', 'nudges'] as const;
+
 export function useCoupleNudges(enabled = true) {
   return useQuery({
-    queryKey: ['relationship', 'nudges'],
-    queryFn: () =>
-      customFetch<{ catalog: Array<{ id: string; label: string; emoji: string; body: string }>; items: CoupleNudge[] }>(
-        '/api/relationship/live/nudges',
-      ),
+    queryKey: NUDGES_KEY,
+    queryFn: () => customFetch<NudgeData>('/api/relationship/live/nudges'),
     enabled,
-    refetchInterval: 12_000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useSendNudge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (type: string) =>
-      customFetch('/api/relationship/live/nudges', { method: 'POST', body: JSON.stringify({ type }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['relationship', 'nudges'] });
+    mutationFn: (type: string | { type: string; comment?: string }) => {
+      const payload = typeof type === 'string' ? { type } : type;
+      return customFetch('/api/relationship/live/nudges', { method: 'POST', body: JSON.stringify(payload) });
+    },
+    onMutate: async (input) => {
+      const payload = typeof input === 'string' ? { type: input } : input;
+      await qc.cancelQueries({ queryKey: NUDGES_KEY });
+      const previous = qc.getQueryData<NudgeData>(NUDGES_KEY);
+      const meta = previous?.catalog.find((c) => c.id === payload.type);
+      const tempId = `pending-${Date.now()}`;
+      qc.setQueryData<NudgeData>(NUDGES_KEY, (old) =>
+        old
+          ? {
+              ...old,
+              items: [
+                {
+                  id: tempId,
+                  type: payload.type,
+                  label: meta?.label ?? payload.type,
+                  emoji: meta?.emoji ?? '💫',
+                  body: meta?.body ?? '',
+                  status: 'sending',
+                  fromMe: true,
+                  createdAt: new Date().toISOString(),
+                  replies: payload.comment
+                    ? [{ id: `${tempId}-c`, body: payload.comment, fromMe: true, createdAt: new Date().toISOString() }]
+                    : [],
+                },
+                ...old.items,
+              ],
+            }
+          : old,
+      );
+      return { previous, tempId };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous) qc.setQueryData(NUDGES_KEY, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: NUDGES_KEY });
       qc.invalidateQueries({ queryKey: ['relationship', 'messages'] });
     },
   });
@@ -457,8 +503,34 @@ export function useReplyNudge() {
         method: 'POST',
         body: JSON.stringify({ body }),
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['relationship', 'nudges'] });
+    onMutate: async ({ nudgeId, body }) => {
+      await qc.cancelQueries({ queryKey: NUDGES_KEY });
+      const previous = qc.getQueryData<NudgeData>(NUDGES_KEY);
+      qc.setQueryData<NudgeData>(NUDGES_KEY, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((n) =>
+                n.id === nudgeId
+                  ? {
+                      ...n,
+                      replies: [
+                        ...n.replies,
+                        { id: `pending-${Date.now()}`, body, fromMe: true, createdAt: new Date().toISOString() },
+                      ],
+                    }
+                  : n,
+              ),
+            }
+          : old,
+      );
+      return { previous };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous) qc.setQueryData(NUDGES_KEY, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: NUDGES_KEY });
       qc.invalidateQueries({ queryKey: ['relationship', 'messages'] });
     },
   });
@@ -482,25 +554,103 @@ export interface CoupleChatMessage {
   kind: string;
   nudgeId?: string | null;
   fromMe: boolean;
+  readAt?: string | null;
   createdAt: string;
+  /** Yalnızca istemcide: sunucu onayı beklenirken true. */
+  pending?: boolean;
+  /** Yalnızca istemcide: gönderim başarısız oldu, tekrar denenebilir. */
+  failed?: boolean;
 }
+
+type CoupleChatData = { partnerName: string; items: CoupleChatMessage[] };
+
+const MESSAGES_KEY = ['relationship', 'messages'] as const;
 
 export function useCoupleMessages(enabled = true) {
   return useQuery({
-    queryKey: ['relationship', 'messages'],
-    queryFn: () =>
-      customFetch<{ partnerName: string; items: CoupleChatMessage[] }>('/api/relationship/live/messages'),
+    queryKey: MESSAGES_KEY,
+    queryFn: () => customFetch<CoupleChatData>('/api/relationship/live/messages'),
     enabled,
-    refetchInterval: 8000,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+    // Yeni veri gelene kadar iyimser balonlar ekranda kalsın.
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useSendCoupleMessage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) =>
-      customFetch('/api/relationship/live/messages', { method: 'POST', body: JSON.stringify({ body }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['relationship', 'messages'] }),
+    mutationFn: (body: string | { body: string; kind?: string }) => {
+      const payload = typeof body === 'string' ? { body } : body;
+      return customFetch<CoupleChatMessage>('/api/relationship/live/messages', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onMutate: async (input) => {
+      const payload = typeof input === 'string' ? { body: input } : input;
+      await qc.cancelQueries({ queryKey: MESSAGES_KEY });
+      const previous = qc.getQueryData<CoupleChatData>(MESSAGES_KEY);
+      const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      qc.setQueryData<CoupleChatData>(MESSAGES_KEY, (old) => ({
+        partnerName: old?.partnerName ?? '',
+        items: [
+          ...(old?.items ?? []),
+          {
+            id: tempId,
+            body: payload.body,
+            kind: payload.kind ?? 'chat',
+            fromMe: true,
+            readAt: null,
+            createdAt: new Date().toISOString(),
+            pending: true,
+          },
+        ],
+      }));
+      return { previous, tempId };
+    },
+    onError: (_err, _input, ctx) => {
+      if (!ctx?.tempId) return;
+      qc.setQueryData<CoupleChatData>(MESSAGES_KEY, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((m) =>
+                m.id === ctx.tempId ? { ...m, pending: false, failed: true } : m,
+              ),
+            }
+          : old,
+      );
+    },
+    onSuccess: (saved, _input, ctx) => {
+      qc.setQueryData<CoupleChatData>(MESSAGES_KEY, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((m) =>
+                m.id === ctx?.tempId
+                  ? { ...m, ...saved, pending: false, failed: false }
+                  : m,
+              ),
+            }
+          : old,
+      );
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+    },
+  });
+}
+
+export function useTransferNudgeToChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (nudgeId: string) =>
+      customFetch(`/api/relationship/live/nudges/${nudgeId}/to-chat`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['relationship', 'messages'] });
+      qc.invalidateQueries({ queryKey: ['relationship', 'nudges'] });
+    },
   });
 }
 
