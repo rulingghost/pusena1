@@ -170,6 +170,7 @@ export const ADMIN_PORTAL_HTML = `<!DOCTYPE html>
     <div class="nav-item" data-tab="users" onclick="switchTab('users',this)">👥 Kullanıcılar</div>
     <div class="nav-item" data-tab="deleted" onclick="switchTab('deleted',this)">🗑️ Silinen Hesaplar</div>
     <div class="nav-item" data-tab="posts" onclick="switchTab('posts',this)">💬 Topluluk</div>
+    <div class="nav-item" data-tab="moderation" onclick="switchTab('moderation',this)">🛡️ Moderasyon</div>
     <div class="nav-item" data-tab="notifs" onclick="switchTab('notifs',this)">🔔 Bildirim Merkezi</div>
     <div class="nav-item" data-tab="content" onclick="switchTab('content',this)">📚 İçerik Yönetimi</div>
     <div class="user-pill">
@@ -226,6 +227,30 @@ export const ADMIN_PORTAL_HTML = `<!DOCTYPE html>
         <input type="text" id="post-search" class="search-input" placeholder="Gönderi veya yorum ara..." oninput="filterPosts()">
       </div>
       <div id="posts-container"></div>
+    </div>
+
+    <div id="tab-moderation" style="display:none">
+      <div class="card-panel">
+        <h3>🛡️ Topluluk Şikayetleri (Raporlanan Gönderiler)</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Kullanıcılar tarafından şikayet edilen gönderileri inceleyebilir, gönderiyi silebilir veya şikayetleri kapatabilirsiniz.</p>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Yazar</th><th>Kategori</th><th>Gönderi İçeriği</th><th>Şikayet Sayısı</th><th>Nedenler</th><th>Tarih</th><th>İşlemler</th></tr></thead>
+            <tbody id="reported-posts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card-panel" style="margin-top:20px">
+        <h3>🤖 Yapay Zekâ Yanıt Şikayetleri (AI Sohbet)</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Kullanıcılar tarafından bildirilen hatalı veya güvensiz yapay zekâ asistan yanıtları.</p>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Tarih</th><th>Kullanıcı Sorusu</th><th>Asistan Yanıtı</th><th>Bildirim Nedeni</th><th>Açıklama</th><th>İşlemler</th></tr></thead>
+            <tbody id="reported-ai-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div id="tab-notifs" style="display:none">
@@ -496,16 +521,17 @@ export const ADMIN_PORTAL_HTML = `<!DOCTYPE html>
       document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
       if (el) el.classList.add('active');
       closeSidebar();
-      ['dashboard','users','deleted','posts','notifs','content'].forEach(function(t) {
+      ['dashboard','users','deleted','posts','moderation','notifs','content'].forEach(function(t) {
         var el2 = document.getElementById('tab-' + t);
         if (el2) el2.style.display = tab === t ? 'block' : 'none';
       });
-      var titles = { dashboard:'Genel Bakış', users:'Kullanıcı Yönetimi', deleted:'Silinen Hesaplar', posts:'Topluluk Moderasyonu', notifs:'Bildirim Merkezi', content:'İçerik Yönetimi' };
+      var titles = { dashboard:'Genel Bakış', users:'Kullanıcı Yönetimi', deleted:'Silinen Hesaplar', posts:'Topluluk Yönetimi', moderation:'Topluluk ve AI Moderasyonu', notifs:'Bildirim Merkezi', content:'İçerik Yönetimi' };
       document.getElementById('page-title').innerText = titles[tab] || tab;
       if (tab === 'dashboard') loadStats();
       if (tab === 'users') loadUsers();
       if (tab === 'deleted') loadDeleted();
       if (tab === 'posts') loadPostsWithComments();
+      if (tab === 'moderation') loadModeration();
       if (tab === 'content') loadContentSub();
     }
 
@@ -918,6 +944,86 @@ export const ADMIN_PORTAL_HTML = `<!DOCTYPE html>
         await api('/api/admin/comments/' + id, { method:'DELETE' });
         toast('Yorum silindi');
         loadPostsWithComments();
+      } catch (e) { toast(e.message, false); }
+    }
+
+    async function loadModeration() {
+      await Promise.all([loadReportedPosts(), loadReportedAi()]);
+    }
+
+    async function loadReportedPosts() {
+      try {
+        var data = await api('/api/admin/moderation/posts');
+        var tbody = document.getElementById('reported-posts-tbody');
+        if (!data.items || !data.items.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">Şikayet edilmiş gönderi bulunmuyor 🎉</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.items.map(function(item) {
+          var reasonsBadges = (item.reasons || []).map(function(r) {
+            return '<span class="badge badge-danger">' + esc(r) + '</span>';
+          }).join(' ');
+          return '<tr>' +
+            '<td><strong>' + esc(item.post ? item.post.authorName : 'Bilinmeyen') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + esc(item.post ? (item.post.authorEmail || '') : '') + '</span></td>' +
+            '<td><span class="badge badge-primary">' + esc(item.post ? item.post.category : '-') + '</span></td>' +
+            '<td style="max-width:320px;word-break:break-word;font-size:12px">' + esc(item.post ? item.post.content : '(Silinmiş Gönderi)') + '</td>' +
+            '<td><span class="badge badge-danger" style="font-size:12px;padding:4px 8px">' + item.reportCount + ' şikayet</span></td>' +
+            '<td>' + (reasonsBadges || '-') + '</td>' +
+            '<td>' + (item.post ? fmtDT(item.post.createdAt) : '-') + '</td>' +
+            '<td><div class="actions">' +
+              (item.post ? '<button class="btn btn-danger btn-sm" onclick="adminDeleteReportedPost(\\'' + item.postId + '\\')">🗑 Gönderiyi Sil</button>' : '') +
+              '<button class="btn btn-ghost btn-sm" onclick="adminDismissPostReports(\\'' + item.postId + '\\')">✓ Kapat</button>' +
+            '</div></td></tr>';
+        }).join('');
+      } catch (e) { toast(e.message, false); }
+    }
+
+    async function adminDeleteReportedPost(postId) {
+      if (!confirm('Bu şikayet edilen gönderiyi ve tüm yorumlarını silmek istediğinize emin misiniz?')) return;
+      try {
+        await api('/api/admin/moderation/posts/' + postId, { method: 'DELETE' });
+        toast('Gönderi ve şikayetler silindi');
+        loadReportedPosts();
+        loadStats();
+      } catch (e) { toast(e.message, false); }
+    }
+
+    async function adminDismissPostReports(postId) {
+      if (!confirm('Bu gönderiye ait şikayetleri kapatmak istediğinize emin misiniz? (Gönderi yayında kalır)')) return;
+      try {
+        await api('/api/admin/moderation/posts/' + postId + '/dismiss', { method: 'DELETE' });
+        toast('Şikayetler kapatıldı');
+        loadReportedPosts();
+      } catch (e) { toast(e.message, false); }
+    }
+
+    async function loadReportedAi() {
+      try {
+        var data = await api('/api/admin/moderation/ai-responses');
+        var tbody = document.getElementById('reported-ai-tbody');
+        if (!data.items || !data.items.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Bildirilen yapay zekâ yanıtı bulunmuyor ✨</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.items.map(function(item) {
+          return '<tr>' +
+            '<td>' + fmtDT(item.createdAt) + '</td>' +
+            '<td style="max-width:200px;word-break:break-word;font-size:12px">' + esc(item.question || '-') + '</td>' +
+            '<td style="max-width:280px;word-break:break-word;font-size:12px">' + esc(item.response || '-') + '</td>' +
+            '<td><span class="badge badge-danger">' + esc(item.reason) + '</span></td>' +
+            '<td style="max-width:180px;word-break:break-word;font-size:12px;color:var(--muted)">' + esc(item.details || '-') + '</td>' +
+            '<td><button class="btn btn-ghost btn-sm" onclick="adminDismissAiReport(\\'' + item.id + '\\')">✓ Kapat</button></td>' +
+          '</tr>';
+        }).join('');
+      } catch (e) { toast(e.message, false); }
+    }
+
+    async function adminDismissAiReport(reportId) {
+      if (!confirm('Bu AI şikayet kaydını kapatmak istediğinize emin misiniz?')) return;
+      try {
+        await api('/api/admin/moderation/ai-responses/' + reportId, { method: 'DELETE' });
+        toast('AI şikayet kaydı kapatıldı');
+        loadReportedAi();
       } catch (e) { toast(e.message, false); }
     }
 

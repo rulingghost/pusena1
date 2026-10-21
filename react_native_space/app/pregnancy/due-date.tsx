@@ -7,6 +7,7 @@ import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { customFetch } from '@/src/api/customFetch';
 import { useQueryClient } from '@tanstack/react-query';
+import { calculatePregnancyProgress, toCalendarUtc, DAY_MS } from '@/src/utils/dateOnly';
 
 export default function DueDateCalculatorScreen() {
   const insets = useSafeAreaInsets();
@@ -30,24 +31,23 @@ export default function DueDateCalculatorScreen() {
     let due: Date;
     let lmpDate: Date;
 
+    const baseDate = toCalendarUtc(selectedDate);
     if (method === 'lmp') {
-      lmpDate = new Date(selectedDate);
-      due = new Date(selectedDate.getTime() + 280 * 24 * 60 * 60 * 1000);
+      lmpDate = baseDate;
+      due = new Date(baseDate.getTime() + 280 * DAY_MS);
     } else if (method === 'conception') {
-      lmpDate = new Date(selectedDate.getTime() - 14 * 24 * 60 * 60 * 1000);
-      due = new Date(selectedDate.getTime() + 266 * 24 * 60 * 60 * 1000);
+      lmpDate = new Date(baseDate.getTime() - 14 * DAY_MS);
+      due = new Date(baseDate.getTime() + 266 * DAY_MS);
     } else {
       // IVF 5-day transfer
-      lmpDate = new Date(selectedDate.getTime() - 19 * 24 * 60 * 60 * 1000);
-      due = new Date(selectedDate.getTime() + 261 * 24 * 60 * 60 * 1000);
+      lmpDate = new Date(baseDate.getTime() - 19 * DAY_MS);
+      due = new Date(baseDate.getTime() + 261 * DAY_MS);
     }
 
-    const now = new Date();
-    const diffMs = now.getTime() - lmpDate.getTime();
-    const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-    const currentWeek = Math.max(1, Math.min(42, Math.floor(totalDays / 7) + 1));
-    const currentDay = Math.max(1, Math.min(7, (totalDays % 7) + 1));
-    const daysRemaining = Math.max(0, Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+    const prog = calculatePregnancyProgress(lmpDate, due);
+    const currentWeek = prog.week;
+    const currentDay = prog.day;
+    const daysRemaining = prog.daysRemaining;
 
     // Estimate Zodiac
     const m = due.getMonth() + 1;

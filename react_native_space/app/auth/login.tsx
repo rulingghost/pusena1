@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/theme/useTheme';
-import { getErrorMessage } from '@/src/api/customFetch';
+import { getErrorMessage, customFetch } from '@/src/api/customFetch';
 import { getApiBase } from '@/src/api/apiBase';
 import { Colors } from '@/src/theme/colors';
 import { getPostAuthRoute } from '@/src/utils/routing';
-import type { UserResponseDto } from '@/src/api/generated/schemas';
+import type { UserResponseDto, AuthResponseDto } from '@/src/api/generated/schemas';
 import { BrandLogo } from '@/src/components/BrandLogo';
 
 export default function LoginScreen() {
@@ -58,6 +59,20 @@ export default function LoginScreen() {
         const result = await WebBrowser.openAuthSessionAsync(authUrl.toString(), redirectUri);
         if (result.type === 'success' && result.url) {
           const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          if (code) {
+            const res = await customFetch<AuthResponseDto>('/api/auth/exchange-code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code }),
+            });
+            if (res?.token && res?.refreshToken && res?.user) {
+              await setAuthFromCallback(res.token, res.refreshToken, res.user);
+              router.replace(getPostAuthRoute(res.user));
+              return;
+            }
+          }
+
           const token = url.searchParams.get('token');
           const refreshToken = url.searchParams.get('refreshToken');
           const userStr = url.searchParams.get('user');
@@ -70,6 +85,61 @@ export default function LoginScreen() {
       }
     } catch (e) {
       setError('Google ile giriş başarısız');
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        const isAvail = await AppleAuthentication.isAvailableAsync().catch(() => false);
+        if (!isAvail) {
+          setError('Bu cihazda Apple ile Giriş desteklenmiyor.');
+          return;
+        }
+
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+
+        if (!credential.identityToken) {
+          setError('Apple kimlik doğrulaması tamamlanamadı.');
+          return;
+        }
+
+        setIsLoading(true);
+        setError('');
+        const res = await customFetch<AuthResponseDto>('/api/auth/apple', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identityToken: credential.identityToken,
+            email: credential.email ?? undefined,
+            fullName: credential.fullName
+              ? {
+                  givenName: credential.fullName.givenName ?? undefined,
+                  familyName: credential.fullName.familyName ?? undefined,
+                }
+              : undefined,
+          }),
+        });
+
+        if (res?.token && res?.refreshToken && res?.user) {
+          await setAuthFromCallback(res.token, res.refreshToken, res.user);
+          router.replace(getPostAuthRoute(res.user));
+        }
+      } else {
+        setError('Apple ile Giriş yalnızca iOS cihazlarda desteklenmektedir.');
+      }
+    } catch (e: any) {
+      if (e?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      setError(getErrorMessage(e, 'Apple ile giriş başarısız'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -141,6 +211,17 @@ export default function LoginScreen() {
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
+            {Platform.OS === 'ios' && (
+              <Pressable
+                style={[styles.appleButton, { backgroundColor: isDark ? '#FFFFFF' : '#000000' }]}
+                onPress={handleAppleLogin}
+                disabled={isLoading}
+              >
+                <Ionicons name="logo-apple" size={19} color={isDark ? '#000000' : '#FFFFFF'} />
+                <Text style={[styles.appleText, { color: isDark ? '#000000' : '#FFFFFF' }]}>Apple ile Giriş Yap</Text>
+              </Pressable>
+            )}
+
             <Pressable style={[styles.googleButton, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={handleGoogleLogin}>
               <Ionicons name="logo-google" size={18} color={isDark ? '#FFF' : '#444'} />
               <Text style={[styles.googleText, { color: colors.text }]}>Google ile Giriş Yap</Text>
@@ -154,6 +235,15 @@ export default function LoginScreen() {
             <Pressable><Text style={[styles.footerLink, { color: Colors.primary }]}>Kayıt Ol</Text></Pressable>
           </Link>
         </View>
+
+        <Pressable
+          style={{ alignItems: 'center', marginTop: 14 }}
+          onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+        >
+          <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
+            Gizlilik Politikası & Kullanım Koşulları
+          </Text>
+        </Pressable>
 
         {__DEV__ && (
           <Link href="/auth/server" asChild>
@@ -224,6 +314,12 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 13 },
+  appleButton: {
+    height: 50, borderRadius: 16,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
+    marginBottom: 8,
+  },
+  appleText: { fontSize: 15, fontWeight: '700' },
   googleButton: {
     height: 50, borderRadius: 16, borderWidth: 1,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,

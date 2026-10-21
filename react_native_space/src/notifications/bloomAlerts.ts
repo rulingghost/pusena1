@@ -48,10 +48,14 @@ export function formatTimeLabel(hhmm: string) {
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
-  const asked = await Notifications.requestPermissionsAsync();
-  return asked.granted;
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current?.granted) return true;
+    const asked = await Notifications.requestPermissionsAsync();
+    return !!asked?.granted;
+  } catch {
+    return false;
+  }
 }
 
 async function ensureAndroidChannel() {
@@ -175,9 +179,10 @@ function periodCopy(offset: number): { title: string; body: string } {
   };
 }
 
-export async function loadMedications(): Promise<MedItem[]> {
+export async function loadMedications(userId?: string | null): Promise<MedItem[]> {
   try {
-    const raw = await AsyncStorage.getItem(MEDS_KEY);
+    const key = userId ? `wellness_${userId}_medications` : MEDS_KEY;
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as any[];
     return (parsed || []).map((m) => {
@@ -199,8 +204,9 @@ export async function loadMedications(): Promise<MedItem[]> {
   }
 }
 
-export async function saveMedications(items: MedItem[]) {
-  await AsyncStorage.setItem(MEDS_KEY, JSON.stringify(items));
+export async function saveMedications(items: MedItem[], userId?: string | null) {
+  const key = userId ? `wellness_${userId}_medications` : MEDS_KEY;
+  await AsyncStorage.setItem(key, JSON.stringify(items));
 }
 
 export async function syncBloomAlerts(params: {
@@ -208,6 +214,7 @@ export async function syncBloomAlerts(params: {
   specialDates?: AlertTarget[];
   dueDate?: Date | null;
   nextPeriod?: Date | null;
+  userId?: string | null;
 }) {
   const ok = await ensureNotificationPermission();
   if (!ok) return { scheduled: 0, permission: false };
@@ -219,7 +226,7 @@ export async function syncBloomAlerts(params: {
   );
 
   if (params.prefs.medicationReminder) {
-    const meds = await loadMedications();
+    const meds = await loadMedications(params.userId);
     for (const med of meds) {
       for (const t of med.times) {
         const parsed = parseTime(t);
@@ -316,5 +323,19 @@ export async function syncDailyQuestionAlert(answered: boolean) {
   when.setHours(20, 0, 0, 0);
   if (when.getTime() > Date.now() + 30_000) {
     await scheduleAt(id, 'Günün sorusunu cevaplamadınız', 'Bugünün çift sorusu sizi bekliyor.', when);
+  }
+}
+
+/** Kullanıcı çıkış yaptığında veya veriler temizlendiğinde tüm Pusena yerel bildirimlerini iptal eder. */
+export async function cancelAllBloomScheduled(): Promise<void> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(
+      scheduled
+        .filter((n) => String(n.identifier || '').startsWith('bloom-'))
+        .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+    );
+  } catch {
+    /* sessizce geç */
   }
 }

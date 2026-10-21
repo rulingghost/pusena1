@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { foldTr } from '../common/text';
+import { getBlockedUserIds, areUsersBlocked } from '../common/blocking';
 
 function fuzzyNameScore(query: string, name: string, nickname?: string | null) {
   const nq = foldTr(query);
@@ -32,6 +33,53 @@ export class CommunityService {
     return user?.nickname || user?.name || 'Anonim';
   }
 
+  async assertCanViewPost(userId: string, postId: string) {
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            nickname: true,
+            avatarUrl: true,
+            settings: {
+              select: {
+                showCommunityPosts: true,
+                profilePublic: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!post) throw new NotFoundException('Gönderi bulunamadı');
+
+    if (post.authorId === userId) {
+      return post;
+    }
+
+    const isBlocked = await areUsersBlocked(this.prisma, userId, post.authorId);
+    if (isBlocked) {
+      throw new NotFoundException('Gönderi bulunamadı');
+    }
+
+    if (post.author.settings && post.author.settings.showCommunityPosts === false) {
+      throw new ForbiddenException('Bu gönderiye erişim izniniz yok');
+    }
+
+    if (post.author.settings && post.author.settings.profilePublic === false) {
+      const isFollowing = await this.prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: userId, followingId: post.authorId } },
+      });
+      if (!isFollowing) {
+        throw new ForbiddenException('Bu gizli bir hesabın gönderisidir');
+      }
+    }
+
+    return post;
+  }
+
   async createPost(userId: string, content: string, category: string, pregnancyWeek?: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const post = await this.prisma.communityPost.create({
@@ -44,16 +92,45 @@ export class CommunityService {
   }
 
   async getPosts(userId: string, category: string | undefined, page: number, limit: number, q?: string) {
-    const blockedUsers = await this.prisma.blockedUser.findMany({ where: { userId }, select: { blockedUserId: true } });
-    const blockedIds = blockedUsers.map(b => b.blockedUserId);
+    const safeLimit = Math.max(1, Math.min(50, Number(limit) || 20));
+    const safePage = Math.max(1, Number(page) || 1);
 
-    // Filter by category, blocked users, and privacy setting (showCommunityPosts)
+    const [blockedIds, myFollowing] = await Promise.all([
+      getBlockedUserIds(this.prisma, userId),
+      this.prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } }),
+    ]);
+    const followedIds = myFollowing.map(f => f.followingId);
+
+    // Filter by category, blocked users (two-way), and privacy settings (showCommunityPosts, profilePublic)
     const where: any = {
       authorId: { notIn: blockedIds },
       OR: [
         { authorId: userId },
-        { author: { settings: { is: { showCommunityPosts: true } } } },
-        { author: { settings: null } },
+        {
+          author: {
+            settings: {
+              is: {
+                showCommunityPosts: true,
+                profilePublic: true,
+              },
+            },
+          },
+        },
+        {
+          authorId: { in: followedIds },
+          author: {
+            settings: {
+              is: {
+                showCommunityPosts: true,
+              },
+            },
+          },
+        },
+        {
+          author: {
+            settings: null,
+          },
+        },
       ],
     };
     if (category) where.category = category;
@@ -67,8 +144,8 @@ export class CommunityService {
         where,
         include: { author: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
       }),
       this.prisma.communityPost.count({ where }),
     ]);
@@ -81,6 +158,8 @@ export class CommunityService {
     const likedIds = new Set(likes.map(l => l.postId));
     const savedIds = new Set(saves.map(s => s.postId));
 
+    const totalPages = Math.ceil(total / safeLimit);
+
     return {
       items: posts.map(p => ({
         id: p.id, content: p.content, category: p.category, pregnancyWeek: p.pregnancyWeek,
@@ -89,16 +168,16 @@ export class CommunityService {
         likesCount: p.likesCount, commentsCount: p.commentsCount,
         isLiked: likedIds.has(p.id), isSaved: savedIds.has(p.id), createdAt: p.createdAt,
       })),
-      total, page, totalPages: Math.ceil(total / limit),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      hasMore: safePage < totalPages,
     };
   }
 
   async getPost(userId: string, postId: string) {
-    const post = await this.prisma.communityPost.findUnique({
-      where: { id: postId },
-      include: { author: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
-    });
-    if (!post) throw new NotFoundException('Gönderi bulunamadı');
+    const post = await this.assertCanViewPost(userId, postId);
 
     const [liked, saved] = await Promise.all([
       this.prisma.postLike.findUnique({ where: { userId_postId: { userId, postId } } }),
@@ -144,6 +223,7 @@ export class CommunityService {
   }
 
   async toggleLike(userId: string, postId: string) {
+    await this.assertCanViewPost(userId, postId);
     const existing = await this.prisma.postLike.findUnique({ where: { userId_postId: { userId, postId } } });
 
     // Beğeni satırı ile sayaç tek işlemde değişmeli; aksi halde hızlı çift
@@ -182,6 +262,7 @@ export class CommunityService {
   }
 
   async toggleSave(userId: string, postId: string) {
+    await this.assertCanViewPost(userId, postId);
     const existing = await this.prisma.savedPost.findUnique({ where: { userId_postId: { userId, postId } } });
     if (existing) {
       await this.prisma.savedPost.delete({ where: { id: existing.id } });
@@ -193,6 +274,7 @@ export class CommunityService {
   }
 
   async reportPost(userId: string, postId: string, reason: string) {
+    await this.assertCanViewPost(userId, postId);
     await this.prisma.report.upsert({
       where: { reporterId_postId: { reporterId: userId, postId } },
       update: { reason },
@@ -201,28 +283,46 @@ export class CommunityService {
     return { success: true };
   }
 
-  async getComments(postId: string, page: number, limit: number) {
+  async getComments(userId: string, postId: string, page: number, limit: number) {
+    await this.assertCanViewPost(userId, postId);
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
+    const safePage = Math.max(1, Number(page) || 1);
+
+    const where = {
+      postId,
+      authorId: { notIn: blockedIds },
+    };
+
     const [items, total] = await Promise.all([
       this.prisma.comment.findMany({
-        where: { postId },
+        where,
         include: { author: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
         orderBy: { createdAt: 'asc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
       }),
-      this.prisma.comment.count({ where: { postId } }),
+      this.prisma.comment.count({ where }),
     ]);
+
+    const totalPages = Math.ceil(total / safeLimit);
 
     return {
       items: items.map(c => ({
         id: c.id, content: c.content, authorId: c.authorId,
         authorName: this.displayName(c.author), authorAvatarUrl: c.author.avatarUrl, createdAt: c.createdAt,
       })),
-      total, page, totalPages: Math.ceil(total / limit),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      hasMore: safePage < totalPages,
     };
   }
 
   async createComment(userId: string, postId: string, content: string) {
+    await this.assertCanViewPost(userId, postId);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const comment = await this.prisma.comment.create({ data: { postId, authorId: userId, content } });
     await this.prisma.communityPost.update({ where: { id: postId }, data: { commentsCount: { increment: 1 } } });
@@ -292,8 +392,7 @@ export class CommunityService {
 
   async searchUsers(userId: string, query: string, page: number, limit: number) {
     const q = (query ?? '').trim();
-    const blocked = await this.prisma.blockedUser.findMany({ where: { userId }, select: { blockedUserId: true } });
-    const blockedIds = blocked.map((b) => b.blockedUserId);
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
 
     const me = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -404,6 +503,11 @@ export class CommunityService {
   }
 
   async getUserProfile(userId: string, targetUserId: string) {
+    if (userId !== targetUserId) {
+      const isBlocked = await areUsersBlocked(this.prisma, userId, targetUserId);
+      if (isBlocked) throw new NotFoundException('Kullanıcı bulunamadı');
+    }
+
     const target = await this.prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
@@ -446,6 +550,11 @@ export class CommunityService {
 
   async getUserPosts(userId: string, targetUserId: string, page: number, limit: number) {
     if (targetUserId !== userId) {
+      const isBlocked = await areUsersBlocked(this.prisma, userId, targetUserId);
+      if (isBlocked) {
+        return { items: [], total: 0, page, totalPages: 0 };
+      }
+
       const settings = await this.prisma.userSettings.findUnique({ where: { userId: targetUserId } });
       const isFollowing = !!(await this.prisma.follow.findUnique({
         where: { followerId_followingId: { followerId: userId, followingId: targetUserId } },
@@ -524,9 +633,17 @@ export class CommunityService {
   }
 
   async getSavedPosts(userId: string, page: number, limit: number) {
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const where = {
+      userId,
+      post: {
+        authorId: { notIn: blockedIds },
+      },
+    };
+
     const [saved, total] = await Promise.all([
       this.prisma.savedPost.findMany({
-        where: { userId },
+        where,
         include: {
           post: {
             include: { author: { select: { id: true, name: true, nickname: true, avatarUrl: true } } },
@@ -536,7 +653,7 @@ export class CommunityService {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.savedPost.count({ where: { userId } }),
+      this.prisma.savedPost.count({ where }),
     ]);
 
     const likes = await this.prisma.postLike.findMany({
@@ -559,6 +676,11 @@ export class CommunityService {
 
   async toggleFollow(userId: string, targetUserId: string) {
     if (userId === targetUserId) throw new ForbiddenException('Kendinizi takip edemezsiniz');
+
+    const isBlocked = await areUsersBlocked(this.prisma, userId, targetUserId);
+    if (isBlocked) {
+      throw new ForbiddenException('Engellenmiş bir kullanıcıyı takip edemezsiniz');
+    }
 
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true, name: true, nickname: true, language: true } });
     if (!target) throw new NotFoundException('Kullanıcı bulunamadı');
@@ -600,6 +722,14 @@ export class CommunityService {
   }
 
   async getFollowList(userId: string, targetUserId: string, kind: 'followers' | 'following') {
+    if (userId !== targetUserId) {
+      const isBlocked = await areUsersBlocked(this.prisma, userId, targetUserId);
+      if (isBlocked) throw new NotFoundException('Kullanıcı bulunamadı');
+    }
+
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const blockedSet = new Set(blockedIds);
+
     const rows = kind === 'followers'
       ? await this.prisma.follow.findMany({
           where: { followingId: targetUserId },
@@ -614,7 +744,10 @@ export class CommunityService {
           take: 200,
         });
 
-    const users = rows.map(r => (kind === 'followers' ? (r as any).follower : (r as any).following));
+    const users = rows
+      .map(r => (kind === 'followers' ? (r as any).follower : (r as any).following))
+      .filter((u: any) => !blockedSet.has(u.id));
+
     const myFollowing = await this.prisma.follow.findMany({
       where: { followerId: userId, followingId: { in: users.map((u: any) => u.id) } },
       select: { followingId: true },

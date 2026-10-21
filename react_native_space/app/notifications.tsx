@@ -80,6 +80,7 @@ export default function NotificationsScreen() {
   };
 
   const handleAnswer = (item: NotificationItemDto, answer: string) => {
+    if (answerAction.isPending || item?.actionDone) return;
     answerAction.mutate(
       { id: item?.id, data: { answer } },
       {
@@ -174,10 +175,18 @@ export default function NotificationsScreen() {
 
         {item?.actionType && !item?.actionDone && (
           <View style={styles.actionRow}>
-            <Pressable style={[styles.actionBtnYes, { backgroundColor: Colors.success }]} onPress={() => handleAnswer(item, 'yes')}>
+            <Pressable
+              disabled={answerAction.isPending}
+              style={[styles.actionBtnYes, { backgroundColor: Colors.success, opacity: answerAction.isPending ? 0.6 : 1 }]}
+              onPress={() => handleAnswer(item, 'yes')}
+            >
               <Text style={styles.actionBtnText}>Evet</Text>
             </Pressable>
-            <Pressable style={[styles.actionBtnNo, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => handleAnswer(item, 'no')}>
+            <Pressable
+              disabled={answerAction.isPending}
+              style={[styles.actionBtnNo, { backgroundColor: colors.inputBg, borderColor: colors.border, opacity: answerAction.isPending ? 0.6 : 1 }]}
+              onPress={() => handleAnswer(item, 'no')}
+            >
               <Text style={[styles.actionBtnText, { color: colors.text }]}>Hayır</Text>
             </Pressable>
           </View>

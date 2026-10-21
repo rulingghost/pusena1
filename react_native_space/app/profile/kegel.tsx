@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { usePregnancyControllerGet } from '@/src/api/generated/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 
 type ProgramId = 'beginner' | 'standard' | 'endurance';
 
@@ -16,13 +17,19 @@ const PROGRAMS: Record<ProgramId, { label: string; squeeze: number; relax: numbe
   endurance: { label: 'Dayanıklılık', squeeze: 8, relax: 8, reps: 12, note: 'Sadece ağrısız ve rahatsızlık yokken. Doğumdan sonra hekim onayıyla artırın.' },
 };
 
-const KEY = 'bloom_kegel_sessions';
+const FEATURE_KEY = 'kegel_sessions';
 
 export default function KegelTrainerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
-  const { data: pregnancy } = usePregnancyControllerGet({ query: { retry: false } });
+  const { data: pregnancy } = usePregnancyControllerGet({
+    query: {
+      retry: false,
+      enabled: user?.gender !== 'MALE',
+    },
+  });
   const week = (pregnancy as any)?.currentWeek as number | undefined;
 
   const [program, setProgram] = useState<ProgramId>('beginner');
@@ -34,15 +41,16 @@ export default function KegelTrainerScreen() {
   const [weekCount, setWeekCount] = useState(0);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const dates: string[] = JSON.parse(raw);
-        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        setWeekCount(dates.filter((d) => new Date(d).getTime() >= weekAgo).length);
-      } catch {}
+    let active = true;
+    getWellnessData<string[]>(FEATURE_KEY, user?.id).then((raw) => {
+      if (!active || !Array.isArray(raw)) return;
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      setWeekCount(raw.filter((d) => new Date(d).getTime() >= weekAgo).length);
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isActive) {
@@ -66,12 +74,13 @@ export default function KegelTrainerScreen() {
             if (next >= cfg.reps) {
               setIsActive(false);
               const stamp = new Date().toISOString();
-              AsyncStorage.getItem(KEY).then((raw) => {
-                const dates: string[] = raw ? JSON.parse(raw) : [];
+              getWellnessData<string[]>(FEATURE_KEY, user?.id).then((raw) => {
+                const dates: string[] = Array.isArray(raw) ? [...raw] : [];
                 dates.push(stamp);
-                AsyncStorage.setItem(KEY, JSON.stringify(dates.slice(-60)));
+                const sliced = dates.slice(-60);
+                void setWellnessData(FEATURE_KEY, sliced, user?.id);
                 const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                setWeekCount(dates.filter((d) => new Date(d).getTime() >= weekAgo).length + 1);
+                setWeekCount(sliced.filter((d) => new Date(d).getTime() >= weekAgo).length);
               });
             }
             return next;

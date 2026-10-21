@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { useFertilityOverview } from '@/src/api/bloomClient';
+import { MedicalDisclaimer } from '@/src/components/MedicalDisclaimer';
 
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const DAYS_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -341,6 +342,8 @@ export default function FertilityGuideScreen() {
             )}
           </View>
         )}
+
+        <MedicalDisclaimer variant="fertility" style={{ marginTop: 16 }} />
       </ScrollView>
     </View>
   );

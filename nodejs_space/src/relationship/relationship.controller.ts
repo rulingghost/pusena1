@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req, Query, DefaultValuePipe, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { RelationshipService } from './relationship.service';
 import { PartnerGuideService } from './partner-guide.service';
@@ -59,8 +59,17 @@ export class RelationshipController {
   }
 
   @Get('live/messages')
-  async listMessages(@Req() req: Request) {
-    return this.coupleLive.listMessages((req as any).user.id);
+  @ApiOperation({ summary: 'Eş sohbet mesajlarını cursor ve sayfalama ile listele' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Sayfa numarası (varsayılan: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Sayfa başına mesaj (varsayılan: 50, azami: 100)' })
+  @ApiQuery({ name: 'before', required: false, type: String, description: 'Cursor ISO tarih filtresi' })
+  async listMessages(
+    @Req() req: Request,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('before') before?: string,
+  ) {
+    return this.coupleLive.listMessages((req as any).user.id, page ?? 1, limit ?? 50, before);
   }
 
   @Post('live/messages')

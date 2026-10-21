@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { assertUserNotMale } from '../common/gender-modules';
+import { DAY_MS, diffCalendarDays } from '../common/dates';
 
 // Relative conception probability per day of the fertile window (Wilcox et al.)
 const WINDOW_PROBABILITY: Array<{ offset: number; label: string; chance: number }> = [
@@ -19,6 +19,7 @@ export class FertilityService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getFertilityOverview(userId: string) {
+    await assertUserNotMale(this.prisma, userId, 'doğurganlık');
     const [cycles, assessment, user, symptoms] = await Promise.all([
       this.prisma.periodCycle.findMany({ where: { userId }, orderBy: { startDate: 'desc' }, take: 6 }),
       this.prisma.fertilityAssessment.findUnique({ where: { userId } }),
@@ -46,11 +47,11 @@ export class FertilityService {
     const variation = Math.max(...lengths) - Math.min(...lengths);
 
     const ovulationDay = avgCycleLength - 14;
-    const currentCycleDay = Math.floor((Date.now() - latest.startDate.getTime()) / DAY_MS) + 1;
+    const currentCycleDay = diffCalendarDays(latest.startDate, new Date()) + 1;
     const ovulationDate = new Date(latest.startDate.getTime() + (ovulationDay - 1) * DAY_MS);
 
     let nextOvulationDate = ovulationDate;
-    while (nextOvulationDate.getTime() < Date.now() - DAY_MS) {
+    while (diffCalendarDays(nextOvulationDate, new Date()) > 0) {
       nextOvulationDate = new Date(nextOvulationDate.getTime() + avgCycleLength * DAY_MS);
     }
 
@@ -58,7 +59,7 @@ export class FertilityService {
 
     const fertileWindow = WINDOW_PROBABILITY.map(w => {
       const date = new Date(nextOvulationDate.getTime() + w.offset * DAY_MS);
-      const daysAway = Math.round((date.getTime() - Date.now()) / DAY_MS);
+      const daysAway = diffCalendarDays(new Date(), date);
       return {
         label: w.label,
         date: date.toISOString().split('T')[0],

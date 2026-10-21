@@ -5,10 +5,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 import { localDateKey } from '@/src/utils/dateOnly';
 
-const STORAGE_KEY = 'baby_feeding_history';
+const FEATURE_KEY = 'baby_feeding_history';
 
 interface FeedSession {
   id: string;
@@ -28,7 +29,13 @@ function formatWhen(iso: string) {
 export default function FeedingTimerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
 
   const [activeSide, setActiveSide] = useState<'left' | 'right' | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -36,27 +43,31 @@ export default function FeedingTimerScreen() {
   const [history, setHistory] = useState<FeedSession[]>([]);
   const [loaded, setLoaded] = useState(false);
   const startedAtRef = useRef<string | null>(null);
+  const startedAtTimestampRef = useRef<number>(0);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
-      if (data) {
-        try {
-          const parsed = JSON.parse(data) as FeedSession[];
-          if (Array.isArray(parsed)) setHistory(parsed);
-        } catch { /* ignore */ }
-      }
+    let active = true;
+    setLoaded(false);
+    getWellnessData<FeedSession[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (!active) return;
+      setHistory(Array.isArray(saved) ? saved : []);
       setLoaded(true);
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  }, [history, loaded]);
+    void setWellnessData(FEATURE_KEY, history, user?.id);
+  }, [history, loaded, user?.id]);
 
   useEffect(() => {
-    if (activeSide === null) return;
-    const interval = setInterval(() => setSeconds((s) => s + 1), 1000);
+    if (activeSide === null || startedAtTimestampRef.current === 0) return;
+    const interval = setInterval(() => {
+      setSeconds(Math.max(0, Math.floor((Date.now() - startedAtTimestampRef.current) / 1000)));
+    }, 1000);
     return () => clearInterval(interval);
   }, [activeSide]);
 
@@ -66,16 +77,19 @@ export default function FeedingTimerScreen() {
 
   const finishSide = (side: 'left' | 'right') => {
     const endedAt = new Date().toISOString();
+    const startMs = startedAtTimestampRef.current || Date.now();
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - startMs) / 1000));
     persistSession({
       id: `${Date.now()}`,
       type: side === 'left' ? 'breast_left' : 'breast_right',
-      durationSeconds: seconds,
+      durationSeconds,
       startedAt: startedAtRef.current || endedAt,
       endedAt,
     });
     setActiveSide(null);
     setSeconds(0);
     startedAtRef.current = null;
+    startedAtTimestampRef.current = 0;
   };
 
   const toggleSide = (side: 'left' | 'right') => {
@@ -87,6 +101,7 @@ export default function FeedingTimerScreen() {
       finishSide(activeSide);
     }
     startedAtRef.current = new Date().toISOString();
+    startedAtTimestampRef.current = Date.now();
     setActiveSide(side);
     setSeconds(0);
   };
@@ -225,6 +240,14 @@ export default function FeedingTimerScreen() {
             })
           )}
         </View>
+
+        {/* Medical Disclaimer */}
+        <View style={[styles.disclaimerBox, { backgroundColor: isDark ? '#2D1F32' : '#F9F5FF', borderColor: colors.border }]}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.floPink} />
+          <Text style={[styles.disclaimerText, { color: colors.textMuted }]}>
+            Not: Bebek beslenme sıklığı ve miktarı bebeğin ayına, kilosuna ve genel gelişimine göre değişir. Bu araç kişisel takip amaçlıdır; beslenme düzeni veya kilo alımıyla ilgili tüm sorularınızda çocuk hekiminize danışınız.
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -259,4 +282,6 @@ const styles = StyleSheet.create({
   histTime: { fontSize: 11.5, marginTop: 1 },
   durPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   durText: { fontSize: 12, fontWeight: '700' },
+  disclaimerBox: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginTop: 24, alignItems: 'flex-start' },
+  disclaimerText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });

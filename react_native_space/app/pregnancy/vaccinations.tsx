@@ -6,18 +6,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { AppImages } from '@/src/theme/images';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 import { DatePickerModal } from '@/src/components/DatePickerModal';
 import { TURKEY_VACCINES, vaccineStatus } from '@/src/data/turkeyVaccines';
 import { ageInDays, loadBabyProfile, saveBabyProfile, type BabyProfile } from '@/src/data/babyProfile';
 import { localDateKey } from '@/src/utils/dateOnly';
 
-const DONE_KEY = 'baby_vaccines_done_ids';
+const FEATURE_KEY = 'baby_vaccines_done_ids';
 
 export default function VaccinationsScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
 
   const [profile, setProfile] = useState<BabyProfile>({ birthDate: null, sex: 'unknown' });
   const [doneIds, setDoneIds] = useState<string[]>([]);
@@ -25,18 +32,25 @@ export default function VaccinationsScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
-    loadBabyProfile().then(setProfile);
-    AsyncStorage.getItem(DONE_KEY).then((raw) => {
-      if (!raw) return;
-      try { setDoneIds(JSON.parse(raw)); } catch { /* ignore */ }
+    let active = true;
+    loadBabyProfile(user?.id).then((p) => {
+      if (active) setProfile(p);
     });
-  }, []);
+    getWellnessData<string[]>(FEATURE_KEY, user?.id).then((raw) => {
+      if (active && Array.isArray(raw)) {
+        setDoneIds(raw);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const days = ageInDays(profile.birthDate);
 
   const persistDone = (ids: string[]) => {
     setDoneIds(ids);
-    AsyncStorage.setItem(DONE_KEY, JSON.stringify(ids));
+    void setWellnessData(FEATURE_KEY, ids, user?.id);
   };
 
   const toggle = (id: string) => {
@@ -46,7 +60,7 @@ export default function VaccinationsScreen() {
   const onPickBirth = async (date: Date) => {
     const next = { ...profile, birthDate: localDateKey(date) };
     setProfile(next);
-    await saveBabyProfile(next);
+    await saveBabyProfile(next, user?.id);
     setShowPicker(false);
   };
 

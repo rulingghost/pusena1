@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as crypto from 'crypto';
 
 const VAULT_KEYS = [
   'JWT_SECRET',
@@ -10,10 +11,63 @@ const VAULT_KEYS = [
   'PUBLIC_API_URL',
 ] as const;
 
-const PLACEHOLDER = /^(YOUR_|changeme|TODO)/i;
+const PLACEHOLDER = /^(YOUR_|changeme|TODO|dev-|test-)/i;
 
-function isUsable(value?: string | null): value is string {
+export function isUsable(value?: string | null): value is string {
   return !!value && value.trim().length > 0 && !PLACEHOLDER.test(value.trim());
+}
+
+export function validateSecrets(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const jwtSecret = process.env.JWT_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
+  const databaseUrl = process.env.DATABASE_URL;
+
+  // In production, enforce strict secrets policy
+  if (isProduction) {
+    const errors: string[] = [];
+
+    if (!databaseUrl || databaseUrl.trim().length === 0) {
+      errors.push('DATABASE_URL ortam değişkeni zorunludur.');
+    }
+
+    if (!isUsable(jwtSecret)) {
+      errors.push('JWT_SECRET tanımlı değil veya geçersiz (placeholder kullanılamaz).');
+    } else if (jwtSecret.length < 32) {
+      errors.push('JWT_SECRET en az 32 karakter uzunluğunda olmalıdır.');
+    }
+
+    if (!isUsable(cronSecret)) {
+      errors.push('CRON_SECRET tanımlı değil veya geçersiz (placeholder kullanılamaz).');
+    } else if (cronSecret.length < 32) {
+      errors.push('CRON_SECRET en az 32 karakter uzunluğunda olmalıdır.');
+    }
+
+    if (jwtSecret && cronSecret && jwtSecret === cronSecret) {
+      errors.push('JWT_SECRET ile CRON_SECRET birbirinden farklı olmalıdır; aynı gizli anahtar paylaşılamaz.');
+    }
+
+    if (errors.length > 0) {
+      console.error('================================================================');
+      console.error('CANLI ORTAM GÜVENLİK HATASI: Eksik veya yetersiz ortam değişkenleri:');
+      for (const err of errors) {
+        console.error(`- ${err}`);
+      }
+      console.error('================================================================');
+      process.exit(1);
+    }
+  } else {
+    // Non-production (development / test)
+    if (!isUsable(process.env.CRON_SECRET)) {
+      // Never fallback to JWT_SECRET! Generate a secure random key
+      process.env.CRON_SECRET = crypto.randomBytes(32).toString('hex');
+    }
+
+    if (process.env.JWT_SECRET && process.env.CRON_SECRET && process.env.JWT_SECRET === process.env.CRON_SECRET) {
+      // Disallow equal secrets even in development
+      process.env.CRON_SECRET = crypto.randomBytes(32).toString('hex');
+    }
+  }
 }
 
 /**
@@ -23,7 +77,11 @@ function isUsable(value?: string | null): value is string {
  */
 export async function hydrateSecretsFromSupabase(): Promise<void> {
   if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL gerekli (Supabase Postgres).');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DATABASE_URL gerekli (Supabase Postgres).');
+    }
+    validateSecrets();
+    return;
   }
 
   const prisma = new PrismaClient();
@@ -68,11 +126,14 @@ export async function hydrateSecretsFromSupabase(): Promise<void> {
         process.env[row.key] = row.value;
       }
     }
-
-    if (!isUsable(process.env.CRON_SECRET) && isUsable(process.env.JWT_SECRET)) {
-      process.env.CRON_SECRET = process.env.JWT_SECRET;
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      throw err;
     }
+    // In dev / offline environments, log warning and continue with process.env
+    console.warn('Supabase secret hydration atlandı veya bağlanılamadı, mevcut ortam değişkenleri kullanılacak.');
   } finally {
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => {});
+    validateSecrets();
   }
 }

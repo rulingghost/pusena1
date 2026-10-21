@@ -12,4 +12,5 @@ export interface CycleInfoDto {
   ovulationDate: string;
   fertileWindowStart: string;
   fertileWindowEnd: string;
+  isPeriodActive: boolean;
 }

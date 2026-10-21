@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authControllerLogin, authControllerSignup, authControllerGetMe, authControllerLogout } from '@/src/api/generated/api';
 import { tryRefreshTokens, clearAuthTokens } from '@/src/api/customFetch';
-import { clearQueryCache } from '@/src/api/queryPersist';
+import { clearQueryCache, hydrateQueryCache, setCurrentCacheUserId, clearPersistSaveTimer } from '@/src/api/queryPersist';
+import { queryClient, resetQueryClientForUserChange } from '@/src/api/queryClient';
+import { stopPartnerLocationShare } from '@/src/location/backgroundShare';
+import { setMediaAuthToken } from '@/src/utils/mediaUrl';
+import { getSecureItem, setSecureItem } from '@/src/utils/secureStorage';
 import type { UserResponseDto } from '@/src/api/generated/schemas';
 
 const USER_CACHE_KEY = 'cached_auth_user';
@@ -72,35 +76,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUser = useCallback(async () => {
     try {
       const [token, cached] = await Promise.all([
-        AsyncStorage.getItem('auth_token'),
+        getSecureItem('auth_token'),
         AsyncStorage.getItem(USER_CACHE_KEY),
       ]);
       const prevCached = safeParseUser(cached);
       if (prevCached) {
         // Önbellekteki kullanıcıyı hemen göster, doğrulamayı arkada yap.
+        setCurrentCacheUserId(prevCached.id);
         setUser(prevCached);
         setIsLoading(false);
       }
       if (!token) {
+        setMediaAuthToken(null);
+        clearPersistSaveTimer();
+        await resetQueryClientForUserChange();
+        setCurrentCacheUserId(null);
         setUser(null);
         await cacheUser(null);
         setIsLoading(false);
         return;
       }
+      setMediaAuthToken(token);
       try {
         const data = await authControllerGetMe();
         const merged = mergeKeepAvatar(data?.user ?? null, prevCached);
+        if (merged?.id) setCurrentCacheUserId(merged.id);
         setUser(merged);
         await cacheUser(merged);
       } catch {
         const refreshed = await tryRefreshTokens();
         if (refreshed) {
+          const freshToken = await getSecureItem('auth_token').catch(() => null);
+          setMediaAuthToken(freshToken);
           const data = await authControllerGetMe();
           const merged = mergeKeepAvatar(data?.user ?? null, prevCached);
+          if (merged?.id) setCurrentCacheUserId(merged.id);
           setUser(merged);
           await cacheUser(merged);
         } else {
+          setMediaAuthToken(null);
+          clearPersistSaveTimer();
+          await resetQueryClientForUserChange();
           await clearAuthTokens();
+          setCurrentCacheUserId(null);
           await cacheUser(null);
           setUser(null);
         }
@@ -115,9 +133,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   const login = useCallback(async (email: string, password: string) => {
+    clearPersistSaveTimer();
+    await resetQueryClientForUserChange();
+
     const data = await authControllerLogin({ email, password });
-    await AsyncStorage.setItem('auth_token', data.token);
-    await AsyncStorage.setItem('refresh_token', data.refreshToken);
+    setCurrentCacheUserId(data.user.id);
+    await setSecureItem('auth_token', data.token);
+    await setSecureItem('refresh_token', data.refreshToken);
+    setMediaAuthToken(data.token);
+    await hydrateQueryCache(queryClient, data.user.id);
     setUser(data.user);
     await cacheUser(data.user);
   }, []);
@@ -129,6 +153,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     nickname?: string,
     extra?: { gender?: string; language?: string; birthYear?: number },
   ) => {
+    clearPersistSaveTimer();
+    await resetQueryClientForUserChange();
+
     const data = await authControllerSignup({
       email,
       password,
@@ -138,29 +165,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(extra?.language ? { language: extra.language } : {}),
       ...(extra?.birthYear ? { birthYear: extra.birthYear } : {}),
     } as any);
-    await AsyncStorage.setItem('auth_token', data.token);
-    await AsyncStorage.setItem('refresh_token', data.refreshToken);
+    setCurrentCacheUserId(data.user.id);
+    await setSecureItem('auth_token', data.token);
+    await setSecureItem('refresh_token', data.refreshToken);
+    setMediaAuthToken(data.token);
+    await hydrateQueryCache(queryClient, data.user.id);
     setUser(data.user);
     await cacheUser(data.user);
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      const refreshToken = await AsyncStorage.getItem('refresh_token');
+      const refreshToken = await getSecureItem('refresh_token');
       if (refreshToken) {
         await authControllerLogout({ refreshToken }).catch(() => {});
       }
     } finally {
+      setMediaAuthToken(null);
+      clearPersistSaveTimer();
+      await resetQueryClientForUserChange();
       await clearAuthTokens();
+      const currentId = userRef.current?.id;
       await cacheUser(null);
-      await clearQueryCache();
+      await clearQueryCache(currentId);
+      await stopPartnerLocationShare().catch(() => {});
+      await AsyncStorage.removeItem('live_alert_seen_ids').catch(() => {});
+      await AsyncStorage.removeItem('active_home_module').catch(() => {});
+      await AsyncStorage.setItem('partner_location_sharing', '0').catch(() => {});
+      await AsyncStorage.removeItem('partner_location_sharing').catch(() => {});
       setUser(null);
     }
   }, []);
 
   const setAuthFromCallback = useCallback(async (token: string, refreshToken: string, userData: UserResponseDto) => {
-    await AsyncStorage.setItem('auth_token', token);
-    await AsyncStorage.setItem('refresh_token', refreshToken);
+    clearPersistSaveTimer();
+    await resetQueryClientForUserChange();
+
+    setCurrentCacheUserId(userData.id);
+    await setSecureItem('auth_token', token);
+    await setSecureItem('refresh_token', refreshToken);
+    setMediaAuthToken(token);
+    await hydrateQueryCache(queryClient, userData.id);
     setUser(userData);
     await cacheUser(userData);
   }, []);

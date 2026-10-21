@@ -6,8 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { AppImages } from '@/src/theme/images';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePregnancyControllerGet, useRelationshipControllerGet } from '@/src/api/generated/api';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 import { loadBabyProfile } from '@/src/data/babyProfile';
 import {
   buildSuggestedBag,
@@ -17,14 +18,26 @@ import {
   type BirthPlan,
 } from '@/src/data/hospitalBag';
 
-const STORE = 'hospital_bag_items';
+const STORE_KEY = 'hospital_bag_items';
 const PLAN_KEY = 'hospital_bag_birth_plan';
 
 export default function HospitalBagScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
-  const { data: pregnancy } = usePregnancyControllerGet({ query: { retry: false } });
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
+
+  const { data: pregnancy } = usePregnancyControllerGet({
+    query: {
+      retry: false,
+      enabled: user?.gender !== 'MALE',
+    },
+  });
   const { data: relationship } = useRelationshipControllerGet({ query: { retry: false } });
 
   const [activeTab, setActiveTab] = useState<'all' | 'mom' | 'baby' | 'partner'>('all');
@@ -39,7 +52,7 @@ export default function HospitalBagScreen() {
     const w = typeof preg?.currentWeek === 'number' ? preg.currentWeek : null;
     setWeek(w);
     const due = preg?.dueDate ? new Date(preg.dueDate) : null;
-    const baby = await loadBabyProfile();
+    const baby = await loadBabyProfile(user?.id);
     const suggested = buildSuggestedBag({
       week: w,
       dueMonth: due && !Number.isNaN(due.getTime()) ? due.getMonth() : null,
@@ -47,32 +60,28 @@ export default function HospitalBagScreen() {
       hasPartner: !!(relationship as any)?.partnerName,
       birthPlan: plan,
     });
-    const raw = await AsyncStorage.getItem(STORE);
-    let saved: BagItem[] = [];
-    if (raw) {
-      try { saved = JSON.parse(raw); } catch {}
-    }
+    const saved = (await getWellnessData<BagItem[]>(STORE_KEY, user?.id)) || [];
     const merged = mergeBag(saved, suggested);
     setItems(merged);
-    await AsyncStorage.setItem(STORE, JSON.stringify(merged));
-  }, [pregnancy, relationship]);
+    await setWellnessData(STORE_KEY, merged, user?.id);
+  }, [pregnancy, relationship, user?.id]);
 
   useEffect(() => {
-    AsyncStorage.getItem(PLAN_KEY).then((p) => {
-      const plan = p === 'vaginal' || p === 'csection' ? p : 'unknown';
+    getWellnessData<string>(PLAN_KEY, user?.id).then((p) => {
+      const plan = p === 'vaginal' || p === 'csection' ? (p as BirthPlan) : 'unknown';
       setBirthPlan(plan);
       rebuild(plan);
     });
-  }, [rebuild]);
+  }, [rebuild, user?.id]);
 
   const saveItems = (updated: BagItem[]) => {
     setItems(updated);
-    AsyncStorage.setItem(STORE, JSON.stringify(updated));
+    void setWellnessData(STORE_KEY, updated, user?.id);
   };
 
   const setPlan = (plan: BirthPlan) => {
     setBirthPlan(plan);
-    AsyncStorage.setItem(PLAN_KEY, plan);
+    void setWellnessData(PLAN_KEY, plan, user?.id);
     rebuild(plan);
   };
 

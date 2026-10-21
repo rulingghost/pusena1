@@ -7,7 +7,10 @@ import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { customFetch } from '@/src/api/customFetch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
+
+const FEATURE_KEY = 'favorite_baby_names';
 
 interface BabyNameItem {
   id: string;
@@ -23,6 +26,7 @@ const ALPHABET = ['TÜMÜ', 'A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'H', 'I', '
 export default function BabyNamesScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -36,14 +40,16 @@ export default function BabyNamesScreen() {
 
   // Load saved favorites
   useEffect(() => {
-    AsyncStorage.getItem('favorite_baby_names').then((data) => {
-      if (data) {
-        try {
-          setFavorites(JSON.parse(data));
-        } catch {}
+    let active = true;
+    getWellnessData<string[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (active && Array.isArray(saved)) {
+        setFavorites(saved);
       }
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const toggleFavorite = async (name: string) => {
     let updated: string[];
@@ -53,7 +59,7 @@ export default function BabyNamesScreen() {
       updated = [...favorites, name];
     }
     setFavorites(updated);
-    await AsyncStorage.setItem('favorite_baby_names', JSON.stringify(updated));
+    await setWellnessData(FEATURE_KEY, updated, user?.id);
   };
 
   const { data, isLoading, refetch } = useQuery<{ items: BabyNameItem[]; total: number }>({

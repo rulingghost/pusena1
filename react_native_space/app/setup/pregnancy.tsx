@@ -18,21 +18,28 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { DatePickerModal } from '@/src/components/DatePickerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { localDateKey } from '@/src/utils/dateOnly';
+import { localDateKey, calculatePregnancyProgress, toCalendarUtc, DAY_MS } from '@/src/utils/dateOnly';
 import { finishOnboarding } from '@/src/utils/onboarding';
+import { isMaleUser } from '@/src/utils/gender';
 
 export default function PregnancySetupScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user, refreshUser } = useAuth();
 
+  React.useEffect(() => {
+    if (isMaleUser(user)) {
+      router.replace('/tabs/home');
+    }
+  }, [user]);
+
   const [lmpDate, setLmpDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const dueDate = new Date(lmpDate.getTime() + 280 * 24 * 60 * 60 * 1000);
-  const diffDays = Math.max(0, Math.floor((Date.now() - lmpDate.getTime()) / (24 * 60 * 60 * 1000)));
-  const currentWeek = Math.min(42, Math.max(1, Math.floor(diffDays / 7) + 1));
+  const prog = calculatePregnancyProgress(lmpDate);
+  const dueDate = new Date(toCalendarUtc(lmpDate).getTime() + 280 * DAY_MS);
+  const currentWeek = prog.week;
 
   const handleContinue = async () => {
     setIsLoading(true);

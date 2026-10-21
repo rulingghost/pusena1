@@ -300,7 +300,7 @@ export class CoupleLiveService {
     return { success: true };
   }
 
-  async listMessages(userId: string) {
+  async listMessages(userId: string, page = 1, limit = 50, before?: string) {
     const { partner, key } = await this.requirePair(userId);
 
     // Sohbeti açan taraf, karşıdan gelen tüm mesajları okumuş sayılır.
@@ -317,14 +317,38 @@ export class CoupleLiveService {
       })
       .catch(() => null);
 
-    const items = await this.prisma.coupleMessage.findMany({
-      where: { pairKey: key, kind: { in: ['chat', 'note'] } },
-      orderBy: { createdAt: 'asc' },
-      take: 200,
-    });
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 50));
+    const safePage = Math.max(1, Number(page) || 1);
+
+    const where: any = {
+      pairKey: key,
+      kind: { in: ['chat', 'note'] },
+    };
+
+    if (before) {
+      const beforeDate = new Date(before);
+      if (!isNaN(beforeDate.getTime())) {
+        where.createdAt = { lt: beforeDate };
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.coupleMessage.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: before ? 0 : (safePage - 1) * safeLimit,
+        take: safeLimit,
+      }),
+      this.prisma.coupleMessage.count({ where: { pairKey: key, kind: { in: ['chat', 'note'] } } }),
+    ]);
+
+    // Reverse descending slice to chronological ascending order for display
+    const chronologicalItems = [...items].reverse();
+    const totalPages = Math.ceil(total / safeLimit);
+
     return {
       partnerName: partner.nickname || partner.name,
-      items: items.map((m) => ({
+      items: chronologicalItems.map((m) => ({
         id: m.id,
         body: m.body,
         kind: m.kind,
@@ -333,6 +357,11 @@ export class CoupleLiveService {
         readAt: m.readAt,
         createdAt: m.createdAt,
       })),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      hasMore: before ? items.length === safeLimit : safePage < totalPages,
     };
   }
 

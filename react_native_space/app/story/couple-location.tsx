@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Switch, Alert, Linking, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Switch, Alert, Linking, Platform, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +60,7 @@ export default function CoupleLocationScreen() {
   const [mode, setMode] = useState<ShareMode | null>(null);
   const [myPlace, setMyPlace] = useState<string | null>(null);
   const [partnerPlace, setPartnerPlace] = useState<string | null>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
 
   const sharing = data?.mine.sharingEnabled ?? false;
   const partner = data?.partner;
@@ -100,7 +101,20 @@ export default function CoupleLocationScreen() {
     return () => clearInterval(t);
   }, [sharing, refetch]);
 
-  const publish = async (enabled: boolean) => {
+  const onToggleSwitch = (enabled: boolean) => {
+    if (!enabled) {
+      executePublish(false);
+    } else {
+      setShowDisclosure(true);
+    }
+  };
+
+  const handleConfirmDisclosure = async () => {
+    setShowDisclosure(false);
+    await executePublish(true);
+  };
+
+  const executePublish = async (enabled: boolean) => {
     setBusy(true);
     try {
       if (!enabled) {
@@ -115,11 +129,11 @@ export default function CoupleLocationScreen() {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== 'granted') {
         Alert.alert(
-          'İzin gerekli',
-          'Konum paylaşımı için konum izni verin. Konumunuz yalnızca eşleşmiş partnerinize gider.',
+          'Konum İzni Verilmedi',
+          'Konum paylaşımı kapalı kaldı. Dilediğiniz zaman bu ekrandan tekrar açabilirsiniz. Pusena\'nın diğer tüm sağlık, döngü, gebelik ve topluluk özelliklerini sorunsuz ve kesintisiz kullanmaya devam edebilirsiniz.',
           [
-            { text: 'Vazgeç', style: 'cancel' },
-            { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+            { text: 'Anladım', style: 'cancel' },
+            { text: 'Cihaz Ayarlarını Aç', onPress: () => Linking.openSettings() },
           ],
         );
         return;
@@ -140,10 +154,10 @@ export default function CoupleLocationScreen() {
       setMode(started);
       if (started === 'foreground') {
         Alert.alert(
-          'Paylaşım açıldı',
+          'Ön Plan Modunda Açıldı',
           Platform.OS === 'ios'
-            ? 'Konumunuz gidiyor. Uygulama kapalıyken de güncellenmesi için konum iznini “Her Zaman” yapın: Ayarlar > Pusena > Konum.'
-            : 'Konumunuz gidiyor. Uygulama kapalıyken de güncellenmesi için konum iznini “Her zaman izin ver” yapın.',
+            ? 'Konumunuz uygulama açıkken partnerinize iletiliyor. Uygulama kapalıyken de güncellenmesi için konum iznini "Her Zaman" yapabilirsiniz: Ayarlar > Pusena > Konum.'
+            : 'Konumunuz uygulama açıkken partnerinize iletiliyor. Uygulama kapalıyken de güncellenmesi için konum iznini "Her zaman izin ver" yapabilirsiniz.',
           [
             { text: 'Şimdilik yeter', style: 'cancel' },
             { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
@@ -208,7 +222,7 @@ export default function CoupleLocationScreen() {
                 <Switch
                   value={sharing}
                   disabled={busy || isLoading}
-                  onValueChange={(v) => publish(v)}
+                  onValueChange={(v) => onToggleSwitch(v)}
                   trackColor={{ true: colors.accent }}
                 />
               </View>
@@ -290,6 +304,80 @@ export default function CoupleLocationScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={showDisclosure} transparent animationType="fade" onRequestClose={() => setShowDisclosure(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconWrap, { backgroundColor: Colors.floPinkLight }]}>
+                <Ionicons name="location" size={26} color={Colors.primary} />
+              </View>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Konum Paylaşımı Bilgilendirmesi</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                Şeffaf İzin ve Gizlilik Bildirimi
+              </Text>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.disclosureItem}>
+                <Ionicons name="heart-outline" size={20} color={Colors.primary} style={styles.dIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dTitle, { color: colors.text }]}>Yalnızca Eşleşmiş Partner</Text>
+                  <Text style={[styles.dDesc, { color: colors.textMuted }]}>
+                    Konum bilginiz sadece partner koduyla eşleştiğiniz kullanıcıya aranızdaki yaklaşık mesafeyi hesaplamak ve yol tarifi sunmak için gösterilir.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.disclosureItem}>
+                <Ionicons name="time-outline" size={20} color={Colors.floTeal} style={styles.dIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dTitle, { color: colors.text }]}>Arka Planda Güncelleme</Text>
+                  <Text style={[styles.dDesc, { color: colors.textMuted }]}>
+                    Konum paylaşımı açıkken uygulama kapalı veya arka plandayken de eşleşmiş partnerinize güvenli konum aktarımı yapılabilir.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.disclosureItem}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={Colors.success} style={styles.dIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dTitle, { color: colors.text }]}>Veri Güvenliği Garantisi</Text>
+                  <Text style={[styles.dDesc, { color: colors.textMuted }]}>
+                    Konum verileriniz hiçbir üçüncü şahısla, reklam ağıyla veya analitik şirketiyle ASLA paylaşılmaz ve satılmaz.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.disclosureItem}>
+                <Ionicons name="sparkles-outline" size={20} color={colors.accent} style={styles.dIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dTitle, { color: colors.text }]}>Tam Bağımsızlık ve İptal Hakkı</Text>
+                  <Text style={[styles.dDesc, { color: colors.textMuted }]}>
+                    Paylaşımı dilediğiniz an tek dokunuşla kapatabilirsiniz. İzin vermeseniz dahi Pusena'nın adet döngüsü, gebelik, semptom takibi, sağlık rehberleri ve sohbet dahil tüm diğer özellikleri sorunsuz çalışır.
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.primaryBtn, { backgroundColor: Colors.primary }]}
+                onPress={handleConfirmDisclosure}
+              >
+                <Text style={styles.primaryBtnText}>Kabul Et ve Konum İznini Aç</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.cancelBtn, { borderColor: colors.border }]}
+                onPress={() => setShowDisclosure(false)}
+              >
+                <Text style={[styles.cancelBtnText, { color: colors.textMuted }]}>Şimdi Değil / Vazgeç</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -320,4 +408,20 @@ const styles = StyleSheet.create({
   partnerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   fresh: { fontSize: 12, fontWeight: '800' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalBox: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: 24, borderWidth: 1, padding: 20 },
+  modalHeader: { alignItems: 'center', marginBottom: 16 },
+  modalIconWrap: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  modalTitle: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  modalSubtitle: { fontSize: 12, marginTop: 4, textAlign: 'center' },
+  modalContent: { maxHeight: 300, marginBottom: 16 },
+  disclosureItem: { flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start' },
+  dIcon: { marginTop: 2 },
+  dTitle: { fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  dDesc: { fontSize: 12, lineHeight: 16 },
+  modalActions: { gap: 10 },
+  primaryBtn: { height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  primaryBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  cancelBtn: { height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  cancelBtnText: { fontSize: 13, fontWeight: '700' },
 });

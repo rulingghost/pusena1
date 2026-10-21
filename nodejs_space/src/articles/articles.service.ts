@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { foldTr } from '../common/text';
+import { PrismaService } from '../prisma/prisma.service';
+
+const STORAGE_FILE = path.join(process.cwd(), 'storage', 'admin_content_overrides.json');
 
 export interface ArticleItem {
   id: string;
@@ -20,7 +25,89 @@ export interface ArticleItem {
 }
 
 @Injectable()
-export class ArticlesService {
+export class ArticlesService implements OnModuleInit {
+  private overrides: {
+    articles: Record<string, Partial<ArticleItem>>;
+    faqs: Record<string, any>;
+    myths: Record<string, any>;
+  } = { articles: {}, faqs: {}, myths: {} };
+
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
+  async onModuleInit() {
+    await this.loadPersistentOverrides();
+  }
+
+  async loadPersistentOverrides() {
+    try {
+      if (this.prisma?.appSecret) {
+        const row = await this.prisma.appSecret.findUnique({
+          where: { key: 'ADMIN_CONTENT_OVERRIDES' },
+        });
+        if (row?.value) {
+          const parsed = JSON.parse(row.value);
+          this.applyOverrides(parsed);
+          return;
+        }
+      }
+    } catch {}
+
+    try {
+      if (fs.existsSync(STORAGE_FILE)) {
+        const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        this.applyOverrides(parsed);
+      }
+    } catch {}
+  }
+
+  private applyOverrides(overrides: {
+    articles?: Record<string, Partial<ArticleItem>>;
+    faqs?: Record<string, any>;
+    myths?: Record<string, any>;
+  }) {
+    if (overrides.articles) {
+      this.overrides.articles = { ...this.overrides.articles, ...overrides.articles };
+      for (const [id, patch] of Object.entries(overrides.articles)) {
+        const idx = this.articles.findIndex((a) => a.id === id);
+        if (idx !== -1) this.articles[idx] = { ...this.articles[idx], ...patch };
+      }
+    }
+    if (overrides.faqs) {
+      this.overrides.faqs = { ...this.overrides.faqs, ...overrides.faqs };
+      for (const [id, patch] of Object.entries(overrides.faqs)) {
+        const idx = this.faqs.findIndex((f) => f.id === id);
+        if (idx !== -1) this.faqs[idx] = { ...this.faqs[idx], ...patch };
+      }
+    }
+    if (overrides.myths) {
+      this.overrides.myths = { ...this.overrides.myths, ...overrides.myths };
+      for (const [id, patch] of Object.entries(overrides.myths)) {
+        const idx = this.myths.findIndex((m) => m.id === id);
+        if (idx !== -1) this.myths[idx] = { ...this.myths[idx], ...patch };
+      }
+    }
+  }
+
+  private async persistOverrides() {
+    const serialized = JSON.stringify(this.overrides);
+    try {
+      const dir = path.dirname(STORAGE_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(STORAGE_FILE, serialized, 'utf-8');
+    } catch {}
+
+    try {
+      if (this.prisma?.appSecret) {
+        await this.prisma.appSecret.upsert({
+          where: { key: 'ADMIN_CONTENT_OVERRIDES' },
+          create: { key: 'ADMIN_CONTENT_OVERRIDES', value: serialized },
+          update: { value: serialized },
+        });
+      }
+    } catch {}
+  }
+
   private articles: ArticleItem[] = [
     {
       id: 'art-1',
@@ -840,6 +927,8 @@ export class ArticlesService {
     const idx = this.articles.findIndex(a => a.id === id);
     if (idx === -1) throw new NotFoundException('Makale bulunamadı');
     this.articles[idx] = { ...this.articles[idx], ...data };
+    this.overrides.articles[id] = { ...(this.overrides.articles[id] || {}), ...data };
+    await this.persistOverrides();
     return this.articles[idx];
   }
 
@@ -847,6 +936,8 @@ export class ArticlesService {
     const idx = this.faqs.findIndex(f => f.id === id);
     if (idx === -1) throw new NotFoundException('SSS bulunamadı');
     this.faqs[idx] = { ...this.faqs[idx], ...data };
+    this.overrides.faqs[id] = { ...(this.overrides.faqs[id] || {}), ...data };
+    await this.persistOverrides();
     return this.faqs[idx];
   }
 
@@ -854,6 +945,8 @@ export class ArticlesService {
     const idx = this.myths.findIndex(m => m.id === id);
     if (idx === -1) throw new NotFoundException('Mit bulunamadı');
     this.myths[idx] = { ...this.myths[idx], ...data };
+    this.overrides.myths[id] = { ...(this.overrides.myths[id] || {}), ...data };
+    await this.persistOverrides();
     return this.myths[idx];
   }
 }

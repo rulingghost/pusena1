@@ -132,11 +132,12 @@ export class CommunityController {
 
   @Get('posts/:postId/comments')
   async getComments(
+    @Req() req: Request,
     @Param('postId') postId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ): Promise<CommentsListResponseDto> {
-    return this.communityService.getComments(postId, page, limit);
+    return this.communityService.getComments((req as any).user.id, postId, page, limit);
   }
 
   @Post('posts/:postId/comments')

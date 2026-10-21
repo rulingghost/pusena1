@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hesap ve Veri Silme Talebi — Pusena</title>
+  <meta name="description" content="Pusena hesabınızı ve tüm ilişkili sağlık, döngü, gebelik ve partner verilerinizi kalıcı olarak silme talep sayfası.">
+  <link rel="icon" type="image/png" href="/pusena-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #8B5CF6;
+      --primary-dark: #7C3AED;
+      --primary-light: #F3E8FF;
+      --danger: #EF4444;
+      --danger-dark: #DC2626;
+      --danger-light: #FEE2E2;
+      --success: #10B981;
+      --success-light: #D1FAE5;
+      --text: #1F2937;
+      --text-muted: #6B7280;
+      --bg: #F9FAFB;
+      --card: #FFFFFF;
+      --border: #E5E7EB;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 24px 16px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #FFFFFF;
+      padding: 8px 18px;
+      border-radius: 999px;
+      box-shadow: 0 2px 10px rgba(139, 92, 246, 0.08);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .logo-badge img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+    .logo-badge span {
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      margin-bottom: 20px;
+    }
+    .info-section {
+      background: var(--primary-light);
+      border-left: 4px solid var(--primary);
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 22px;
+      font-size: 13px;
+      color: #4C1D95;
+    }
+    .info-section strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .data-list {
+      margin: 14px 0 20px 0;
+      padding-left: 20px;
+      font-size: 13.5px;
+      color: #374151;
+    }
+    .data-list li {
+      margin-bottom: 6px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      background: #F9FAFB;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .warning-box {
+      background: var(--danger-light);
+      border: 1px solid #FCA5A5;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      color: #991B1B;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .btn-submit {
+      width: 100%;
+      background: var(--danger);
+      color: #FFFFFF;
+      border: none;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+    .btn-submit:hover {
+      background: var(--danger-dark);
+    }
+    .btn-submit:active {
+      transform: scale(0.99);
+    }
+    .btn-submit:disabled {
+      background: #9CA3AF;
+      cursor: not-allowed;
+    }
+    .status-msg {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      display: none;
+      text-align: center;
+      font-weight: 600;
+    }
+    .status-msg.error {
+      display: block;
+      background: var(--danger-light);
+      color: var(--danger-dark);
+      border: 1px solid #FCA5A5;
+    }
+    .status-msg.success {
+      display: block;
+      background: var(--success-light);
+      color: #065F46;
+      border: 1px solid #6EE7B7;
+    }
+    .footer-links {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 16px;
+    }
+    .footer-links a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-badge">
+        <img src="/pusena-logo.png" alt="Pusena Logo">
+        <span>Pusena</span>
+      </div>
+      <h1>Hesap ve Veri Silme</h1>
+      <p class="subtitle">Google Play ve App Store kullanıcı verileri silme talep formu</p>
+    </div>
+
+    <div class="card">
+      <div class="info-section">
+        <strong>🛡️ Veri Güvenliği ve Silme Politikası</strong>
+        Pusena hesabınızı sildiğinizde, hesabınıza bağlı tüm kişisel sağlık ve döngü kayıtları kalıcı olarak yok edilir. Bu işlem geri alınamaz.
+      </div>
+
+      <p style="font-size: 14px; font-weight: 600;">Silinecek Veri Kategorileri:</p>
+      <ul class="data-list">
+        <li><strong>Profil Bilgileri:</strong> İsim, e-posta, biyografi, avatar fotoğrafı.</li>
+        <li><strong>Kadın Sağlığı & Döngü Kayıtları:</strong> Regl döngüleri, akıntı kayıtları, takvim notları, semptom geçmişi, doğurganlık ve BBT verileri.</li>
+        <li><strong>Gebelik Verileri:</strong> Son adet tarihi, tahmini doğum tarihi, bebek ismi, tekme ve kasılma sayaç kayıtları.</li>
+        <li><strong>Partnerlik & Sohbet:</strong> Eşleşme kodu, eşler arası canlı sohbet mesajları, dürtmeler ve çift anıları fotoğrafları.</li>
+        <li><strong>Konum Bilgileri:</strong> Eşler arası anlık veya geçmiş konum kayıtları.</li>
+      </ul>
+
+      <form id="deleteForm">
+        <div class="form-group">
+          <label for="email">Pusena'da Kayıtlı E-posta Adresiniz</label>
+          <input type="email" id="email" name="email" required placeholder="ornek@email.com">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Hesap Şifreniz</label>
+          <input type="password" id="password" name="password" required placeholder="••••••••">
+        </div>
+
+        <div class="form-group">
+          <label for="reason">Ayrılma Nedeniniz (İsteğe bağlı)</label>
+          <select id="reason" name="reason">
+            <option value="Artık kullanmıyorum">Artık kullanmıyorum</option>
+            <option value="Gizlilik ve güvenlik endişeleri">Gizlilik ve güvenlik endişeleri</option>
+            <option value="Başka bir uygulama tercih ettim">Başka bir uygulama tercih ettim</option>
+            <option value="İhtiyacım kalmadı">İhtiyacım kalmadı</option>
+            <option value="Diğer">Diğer</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="note">Geri Bildirim veya Not (İsteğe bağlı)</label>
+          <textarea id="note" name="note" placeholder="Deneyiminizi geliştirmemiz için öneriniz varsa paylaşabilirsiniz..."></textarea>
+        </div>
+
+        <div class="warning-box">
+          <span>⚠️</span>
+          <span>
+            <strong>Dikkat:</strong> Hesabınızı sildiğinizde aktif eşleşmeniz anında sonlandırılır, partnerinizin ekranından bilgileriniz kaldırılır ve tüm cihazlardaki oturumlarınız kapatılır.
+          </span>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit">Hesabımı ve Tüm Verilerimi Kalıcı Olarak Sil</button>
+        <div id="statusMsg" class="status-msg"></div>
+      </form>
+    </div>
+
+    <div class="footer-links">
+      <p>Sorularınız veya yardım için: <a href="mailto:destek@pusena.app">destek@pusena.app</a></p>
+      <p style="margin-top: 6px;"><a href="/privacy">Pusena Gizlilik Politikasını İnceleyin</a></p>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('deleteForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusMsg = document.getElementById('statusMsg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const reason = document.getElementById('reason').value;
+      const note = document.getElementById('note').value.trim();
+
+      if (!email || !password) {
+        showStatus('Lütfen e-posta ve şifrenizi girin.', 'error');
+        return;
+      }
+
+      if (!confirm('Pusena hesabınız ve tüm sağlık verileriniz kalıcı olarak silinecek. Emin misiniz?')) {
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Silme işlemi gerçekleştiriliyor...';
+      hideStatus();
+
+      try {
+        const res = await fetch('/api/auth/web-delete-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, reason, note: note || undefined })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          form.style.display = 'none';
+          showStatus('✅ Hesabınız ve tüm ilişkili verileriniz başarıyla kalıcı olarak silindi. Pusena ailesine katıldığınız için teşekkür ederiz.', 'success');
+        } else {
+          showStatus(data.message || 'Hesap silinemedi. Lütfen bilgilerinizi kontrol edin.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Hesabımı ve Tüm Verilerimi Kalıcı Olarak Sil';
+        }
+      } catch (err) {
+        showStatus('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Hesabımı ve Tüm Verilerimi Kalıcı Olarak Sil';
+      }
+    });
+
+    function showStatus(msg, type) {
+      statusMsg.className = 'status-msg ' + type;
+      statusMsg.innerText = msg;
+    }
+
+    function hideStatus() {
+      statusMsg.className = 'status-msg';
+      statusMsg.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

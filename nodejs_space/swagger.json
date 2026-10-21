@@ -1,6 +1,70 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "AppController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Uptime pinger buraya vurur; veritabanına dokunmaz.",
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/delete-account": {
+      "get": {
+        "operationId": "AppController_getDeleteAccount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/privacy": {
+      "get": {
+        "operationId": "AppController_getPrivacy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
     "/api/signup": {
       "post": {
         "operationId": "AuthController_signup",
@@ -16,7 +80,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -27,6 +91,7 @@
             }
           }
         },
+        "summary": "Kullanıcı kaydı oluştur",
         "tags": [
           "Auth"
         ]
@@ -47,7 +112,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -58,6 +123,7 @@
             }
           }
         },
+        "summary": "E-posta ve şifre ile giriş yap",
         "tags": [
           "Auth"
         ]
@@ -79,6 +145,7 @@
             }
           }
         },
+        "summary": "Mevcut oturum açmış kullanıcı profilini getir",
         "tags": [
           "Auth"
         ]
@@ -99,7 +166,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -110,6 +177,7 @@
             }
           }
         },
+        "summary": "Yenileme tokenı ile erişim tokenını yenile",
         "tags": [
           "Auth"
         ]
@@ -130,7 +198,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -141,6 +209,7 @@
             }
           }
         },
+        "summary": "Oturumu kapat ve tokenı iptal et",
         "tags": [
           "Auth"
         ]
@@ -161,7 +230,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -172,6 +241,39 @@
             }
           }
         },
+        "summary": "Şifre sıfırlama kodu talep et",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "6 haneli doğrulama kodu ile yeni şifre belirle",
         "tags": [
           "Auth"
         ]
@@ -203,6 +305,7 @@
             }
           }
         },
+        "summary": "Mevcut oturumda şifre değiştir",
         "tags": [
           "Auth"
         ]
@@ -234,6 +337,103 @@
             }
           }
         },
+        "summary": "Kullanıcı hesabını ve tüm verilerini kalıcı olarak sil",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/web-delete-account": {
+      "post": {
+        "operationId": "AuthController_webDeleteAccount",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebDeleteAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Web üzerinden e-posta ve şifre ile hesap silme işlemini gerçekleştir",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/exchange-code": {
+      "post": {
+        "operationId": "AuthController_exchangeCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeCodeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "OAuth tek kullanımlık kodunu oturum tokenlarına çevir",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/apple": {
+      "post": {
+        "operationId": "AuthController_appleAuth",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleAuthDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Sign in with Apple ile giriş / kayıt (iOS & Web)",
         "tags": [
           "Auth"
         ]
@@ -324,6 +524,177 @@
         ]
       }
     },
+    "/api/users/language": {
+      "patch": {
+        "operationId": "UsersController_setLanguage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLanguageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/assessment": {
+      "get": {
+        "operationId": "UsersController_getAssessment",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_saveAssessment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAssessmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/memories": {
+      "get": {
+        "operationId": "UsersController_getMemories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_createMemory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertMemoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/memories/{memoryId}": {
+      "patch": {
+        "operationId": "UsersController_updateMemory",
+        "parameters": [
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertMemoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_deleteMemory",
+        "parameters": [
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/doctor-summary": {
+      "get": {
+        "operationId": "UsersController_getDoctorSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/users/{userId}/public": {
       "get": {
         "operationId": "UsersController_getPublicProfile",
@@ -351,6 +722,35 @@
         },
         "tags": [
           "Users"
+        ]
+      }
+    },
+    "/api/media/{id}": {
+      "get": {
+        "operationId": "MediaController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Media"
         ]
       }
     },
@@ -504,7 +904,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -515,6 +915,37 @@
             }
           }
         },
+        "summary": "Gebelik kaydı oluştur",
+        "tags": [
+          "Pregnancy"
+        ]
+      },
+      "put": {
+        "operationId": "PregnancyController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePregnancyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PregnancyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Gebelik kaydı güncelle",
         "tags": [
           "Pregnancy"
         ]
@@ -534,6 +965,7 @@
             }
           }
         },
+        "summary": "Mevcut aktif gebelik detaylarını getir",
         "tags": [
           "Pregnancy"
         ]
@@ -548,6 +980,104 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Pregnancy"
+        ]
+      }
+    },
+    "/api/pregnancy/baby-name": {
+      "post": {
+        "operationId": "PregnancyController_setBabyName",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBabyNameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PregnancyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bebek ismi belirle",
+        "tags": [
+          "Pregnancy"
+        ]
+      }
+    },
+    "/api/pregnancy/baby-names": {
+      "get": {
+        "operationId": "PregnancyController_getBabyNames",
+        "parameters": [
+          {
+            "name": "gender",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "girl",
+                "boy",
+                "unisex",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BabyNamesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bebek isimleri listesini getir",
+        "tags": [
+          "Pregnancy"
+        ]
+      }
+    },
+    "/api/pregnancy/postpartum/reminders": {
+      "post": {
+        "operationId": "PregnancyController_postpartumReminders",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             }
@@ -606,6 +1136,27 @@
         },
         "tags": [
           "Pregnancy"
+        ]
+      }
+    },
+    "/api/period/fertility": {
+      "get": {
+        "operationId": "PeriodController_fertility",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Period"
         ]
       }
     },
@@ -799,6 +1350,70 @@
         ]
       }
     },
+    "/api/period/end": {
+      "post": {
+        "operationId": "PeriodController_end",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndPeriodDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndPeriodResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Period"
+        ]
+      }
+    },
+    "/api/period/cycles/{cycleId}/end": {
+      "patch": {
+        "operationId": "PeriodController_endCycle",
+        "parameters": [
+          {
+            "name": "cycleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndPeriodDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Period"
+        ]
+      }
+    },
     "/api/symptoms": {
       "post": {
         "operationId": "SymptomsController_create",
@@ -858,6 +1473,57 @@
         ]
       }
     },
+    "/api/symptoms/history": {
+      "get": {
+        "operationId": "SymptomsController_getHistory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymptomHistoryResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Symptoms"
+        ]
+      }
+    },
+    "/api/symptoms/{id}": {
+      "delete": {
+        "operationId": "SymptomsController_deleteSymptom",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Symptoms"
+        ]
+      }
+    },
     "/api/symptoms/types": {
       "get": {
         "operationId": "SymptomsController_getTypes",
@@ -876,6 +1542,373 @@
         },
         "tags": [
           "Symptoms"
+        ]
+      }
+    },
+    "/api/relationship/partner-guide": {
+      "get": {
+        "operationId": "RelationshipController_getPartnerGuide",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/location": {
+      "get": {
+        "operationId": "RelationshipController_getLocation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      },
+      "post": {
+        "operationId": "RelationshipController_upsertLocation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/nudges": {
+      "get": {
+        "operationId": "RelationshipController_listNudges",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      },
+      "post": {
+        "operationId": "RelationshipController_sendNudge",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNudgeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/nudges/{nudgeId}/to-chat": {
+      "post": {
+        "operationId": "RelationshipController_transferNudgeToChat",
+        "parameters": [
+          {
+            "name": "nudgeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/nudges/{nudgeId}/reply": {
+      "post": {
+        "operationId": "RelationshipController_replyNudge",
+        "parameters": [
+          {
+            "name": "nudgeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoupleChatDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/nudges/{nudgeId}": {
+      "delete": {
+        "operationId": "RelationshipController_deleteNudge",
+        "parameters": [
+          {
+            "name": "nudgeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/live/messages": {
+      "get": {
+        "operationId": "RelationshipController_listMessages",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Sayfa numarası (varsayılan: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Sayfa başına mesaj (varsayılan: 50, azami: 100)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "Cursor ISO tarih filtresi",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Eş sohbet mesajlarını cursor ve sayfalama ile listele",
+        "tags": [
+          "Relationship"
+        ]
+      },
+      "post": {
+        "operationId": "RelationshipController_sendMessage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoupleChatDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/couple-questions": {
+      "get": {
+        "operationId": "RelationshipController_getCoupleQuestions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/couple-questions/{questionId}": {
+      "post": {
+        "operationId": "RelationshipController_saveCoupleAnswer",
+        "parameters": [
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerCoupleQuestionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/partner-info": {
+      "get": {
+        "operationId": "RelationshipController_getPartnerInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerInfoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/lookup": {
+      "post": {
+        "operationId": "RelationshipController_lookupPartner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairPartnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/pair": {
+      "post": {
+        "operationId": "RelationshipController_pairPartner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairPartnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerInfoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Relationship"
+        ]
+      }
+    },
+    "/api/relationship/unpair": {
+      "post": {
+        "operationId": "RelationshipController_unpair",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Relationship"
         ]
       }
     },
@@ -1202,6 +2235,14 @@
             }
           },
           {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -1235,6 +2276,275 @@
         ]
       }
     },
+    "/api/community/users/search": {
+      "get": {
+        "operationId": "CommunityController_searchUsers",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/users/{targetUserId}/profile": {
+      "get": {
+        "operationId": "CommunityController_getUserProfile",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/users/{targetUserId}/posts": {
+      "get": {
+        "operationId": "CommunityController_getUserPosts",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/users/{targetUserId}/follow": {
+      "post": {
+        "operationId": "CommunityController_toggleFollow",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/users/{targetUserId}/followers": {
+      "get": {
+        "operationId": "CommunityController_getFollowers",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/users/{targetUserId}/following": {
+      "get": {
+        "operationId": "CommunityController_getFollowing",
+        "parameters": [
+          {
+            "name": "targetUserId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/my-posts": {
+      "get": {
+        "operationId": "CommunityController_getMyPosts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/saved-posts": {
+      "get": {
+        "operationId": "CommunityController_getSavedPosts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/saved-articles": {
+      "get": {
+        "operationId": "CommunityController_getSavedArticles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
+    "/api/community/saved-articles/{articleId}": {
+      "post": {
+        "operationId": "CommunityController_toggleSavedArticle",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      }
+    },
     "/api/community/posts/{postId}": {
       "get": {
         "operationId": "CommunityController_getPost",
@@ -1248,6 +2558,44 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityPostResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Community"
+        ]
+      },
+      "put": {
+        "operationId": "CommunityController_editPost",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditPostDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -1847,6 +3195,62 @@
         ]
       }
     },
+    "/api/dashboard/insights": {
+      "get": {
+        "operationId": "DashboardController_getInsights",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/admin-portal": {
+      "get": {
+        "operationId": "AdminController_getAdminPortal",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "operationId": "AdminController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/users": {
       "get": {
         "operationId": "AdminController_getUsers",
@@ -1893,6 +3297,44 @@
         ]
       }
     },
+    "/api/admin/deleted-accounts": {
+      "get": {
+        "operationId": "AdminController_getDeletedAccounts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDeletedAccountsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/users/{userId}": {
       "get": {
         "operationId": "AdminController_getUserDetail",
@@ -1906,6 +3348,44 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminController_updateUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminUserDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -2041,6 +3521,14 @@
             "schema": {
               "type": "number"
             }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2083,6 +3571,37 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminController_updatePost",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdatePostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
           }
         },
         "tags": [
@@ -2156,6 +3675,700 @@
         "tags": [
           "Admin"
         ]
+      },
+      "patch": {
+        "operationId": "AdminController_updateComment",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/posts-with-comments": {
+      "get": {
+        "operationId": "AdminController_getPostsWithComments",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/pregnancy-weeks": {
+      "get": {
+        "operationId": "AdminController_getPregnancyWeeks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/pregnancy-weeks/{weekNumber}": {
+      "get": {
+        "operationId": "AdminController_getPregnancyWeekDetail",
+        "parameters": [
+          {
+            "name": "weekNumber",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/symptom-types": {
+      "get": {
+        "operationId": "AdminController_getSymptomTypes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/symptom-types/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateSymptomType",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateSymptomTypeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/baby-names": {
+      "get": {
+        "operationId": "AdminController_getBabyNames",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/baby-names/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateBabyName",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateBabyNameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/articles": {
+      "get": {
+        "operationId": "AdminController_getArticlesContent",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/articles/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateArticle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateArticleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/faqs/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateFaq",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateFaqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/content/myths/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateMyth",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateMythDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/moderation/posts": {
+      "get": {
+        "operationId": "AdminController_getReportedPosts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/moderation/posts/{postId}": {
+      "delete": {
+        "operationId": "AdminController_deleteReportedPost",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/moderation/posts/{postId}/dismiss": {
+      "delete": {
+        "operationId": "AdminController_dismissPostReports",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/moderation/ai-responses": {
+      "get": {
+        "operationId": "AdminController_getReportedAiResponses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/moderation/ai-responses/{reportId}": {
+      "delete": {
+        "operationId": "AdminController_dismissAiResponseReport",
+        "parameters": [
+          {
+            "name": "reportId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/articles": {
+      "get": {
+        "operationId": "ArticlesController_getArticles",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get health and pregnancy articles with category filter and search",
+        "tags": [
+          "Articles"
+        ]
+      }
+    },
+    "/api/articles/faqs": {
+      "get": {
+        "operationId": "ArticlesController_getFaqs",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get medical frequently asked questions",
+        "tags": [
+          "Articles"
+        ]
+      }
+    },
+    "/api/articles/myths": {
+      "get": {
+        "operationId": "ArticlesController_getMyths",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get women health and pregnancy myths and facts",
+        "tags": [
+          "Articles"
+        ]
+      }
+    },
+    "/api/articles/{id}": {
+      "get": {
+        "operationId": "ArticlesController_getArticleById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get article details by ID",
+        "tags": [
+          "Articles"
+        ]
+      }
+    },
+    "/api/assistant/daily-insight": {
+      "get": {
+        "operationId": "AssistantController_getDailyInsight",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Günlük sağlık asistanı içgörüsü ve başlangıç kartı",
+        "tags": [
+          "Assistant"
+        ]
+      }
+    },
+    "/api/assistant/chat": {
+      "post": {
+        "operationId": "AssistantController_chat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatAssistantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Yapay zekâ sağlık asistanı ile sohbet",
+        "tags": [
+          "Assistant"
+        ]
+      }
+    },
+    "/api/assistant/report": {
+      "post": {
+        "operationId": "AssistantController_reportResponse",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportAssistantResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Hatalı veya uygunsuz yapay zekâ yanıtını şikayet et",
+        "tags": [
+          "Assistant"
+        ]
       }
     }
   },
@@ -2183,12 +4396,30 @@
           "name": {
             "type": "string",
             "minLength": 2
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "female",
+              "male",
+              "other"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "birthYear": {
+            "type": "number"
           }
         },
         "required": [
           "email",
           "password",
-          "name"
+          "name",
+          "gender"
         ]
       },
       "UserResponseDto": {
@@ -2215,11 +4446,30 @@
             "type": "string",
             "nullable": true
           },
+          "partnerCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "pairedUserId": {
+            "type": "string",
+            "nullable": true
+          },
           "hasCompletedSetup": {
             "type": "boolean"
           },
           "isAdmin": {
             "type": "boolean"
+          },
+          "gender": {
+            "type": "string",
+            "nullable": true
+          },
+          "language": {
+            "type": "string"
+          },
+          "birthYear": {
+            "type": "number",
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -2233,8 +4483,13 @@
           "nickname",
           "biography",
           "avatarUrl",
+          "partnerCode",
+          "pairedUserId",
           "hasCompletedSetup",
           "isAdmin",
+          "gender",
+          "language",
+          "birthYear",
           "createdAt"
         ]
       },
@@ -2261,8 +4516,7 @@
         "type": "object",
         "properties": {
           "email": {
-            "type": "string",
-            "format": "email"
+            "type": "string"
           },
           "password": {
             "type": "string"
@@ -2348,6 +4602,28 @@
           "message"
         ]
       },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "code": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6
+          }
+        },
+        "required": [
+          "newPassword"
+        ]
+      },
       "ChangePasswordDto": {
         "type": "object",
         "properties": {
@@ -2369,10 +4645,90 @@
         "properties": {
           "password": {
             "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
           }
         },
         "required": [
           "password"
+        ]
+      },
+      "WebDeleteAccountDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Kayıtlı e-posta adresi"
+          },
+          "password": {
+            "type": "string",
+            "description": "Hesap şifresi"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Hesap silme nedeni"
+          },
+          "note": {
+            "type": "string",
+            "description": "Ek açıklama veya not"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "ExchangeCodeDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "OAuth one-time exchange code"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "AppleFullNameDto": {
+        "type": "object",
+        "properties": {
+          "givenName": {
+            "type": "string"
+          },
+          "familyName": {
+            "type": "string"
+          }
+        }
+      },
+      "AppleAuthDto": {
+        "type": "object",
+        "properties": {
+          "identityToken": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Apple Identity Token (JWT)"
+          },
+          "email": {
+            "type": "string",
+            "description": "Apple kullanıcı e-postası (varsa)"
+          },
+          "fullName": {
+            "description": "Apple kullanıcı tam adı",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppleFullNameDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "identityToken"
         ]
       },
       "UpdateProfileDto": {
@@ -2389,6 +4745,40 @@
           "biography": {
             "type": "string",
             "maxLength": 300
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "female",
+              "male",
+              "other"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "tr",
+              "en"
+            ]
+          },
+          "birthYear": {
+            "type": "number",
+            "minimum": 1940,
+            "maximum": 2026
+          },
+          "heightCm": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 230
+          },
+          "weightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300
           }
         }
       },
@@ -2416,6 +4806,25 @@
             "type": "string",
             "nullable": true
           },
+          "gender": {
+            "type": "string",
+            "nullable": true
+          },
+          "language": {
+            "type": "string"
+          },
+          "birthYear": {
+            "type": "number",
+            "nullable": true
+          },
+          "heightCm": {
+            "type": "number",
+            "nullable": true
+          },
+          "weightKg": {
+            "type": "number",
+            "nullable": true
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -2428,7 +4837,94 @@
           "nickname",
           "biography",
           "avatarUrl",
+          "gender",
+          "language",
+          "birthYear",
+          "heightCm",
+          "weightKg",
           "createdAt"
+        ]
+      },
+      "UpdateLanguageDto": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "tr",
+              "en"
+            ]
+          }
+        },
+        "required": [
+          "language"
+        ]
+      },
+      "SaveAssessmentDto": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "tryingDuration": {
+            "type": "string"
+          },
+          "cycleRegularity": {
+            "type": "string"
+          },
+          "contraceptionPast": {
+            "type": "string"
+          },
+          "healthConditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "heightCm": {
+            "type": "number"
+          },
+          "weightKg": {
+            "type": "number"
+          },
+          "age": {
+            "type": "number"
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "UpsertMemoryDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "date": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "date"
         ]
       },
       "PublicUserResponseDto": {
@@ -2484,6 +4980,18 @@
           },
           "communityComments": {
             "type": "boolean"
+          },
+          "medicationReminder": {
+            "type": "boolean"
+          },
+          "countdownReminder": {
+            "type": "boolean"
+          },
+          "reminderOffsets": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
         "required": [
@@ -2493,7 +5001,10 @@
           "fertilityAlert",
           "specialDateReminder",
           "communityLikes",
-          "communityComments"
+          "communityComments",
+          "medicationReminder",
+          "countdownReminder",
+          "reminderOffsets"
         ]
       },
       "PrivacySettingsDto": {
@@ -2504,11 +5015,15 @@
           },
           "showCommunityPosts": {
             "type": "boolean"
+          },
+          "allowFollow": {
+            "type": "boolean"
           }
         },
         "required": [
           "profilePublic",
-          "showCommunityPosts"
+          "showCommunityPosts",
+          "allowFollow"
         ]
       },
       "SettingsResponseDto": {
@@ -2584,6 +5099,18 @@
           },
           "communityComments": {
             "type": "boolean"
+          },
+          "medicationReminder": {
+            "type": "boolean"
+          },
+          "countdownReminder": {
+            "type": "boolean"
+          },
+          "reminderOffsets": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         }
       },
@@ -2594,6 +5121,9 @@
             "type": "boolean"
           },
           "showCommunityPosts": {
+            "type": "boolean"
+          },
+          "allowFollow": {
             "type": "boolean"
           }
         }
@@ -2614,6 +5144,9 @@
         "properties": {
           "lastMenstrualPeriod": {
             "type": "string"
+          },
+          "babyName": {
+            "type": "string"
           }
         },
         "required": [
@@ -2633,6 +5166,10 @@
           "dueDate": {
             "format": "date-time",
             "type": "string"
+          },
+          "babyName": {
+            "type": "string",
+            "nullable": true
           },
           "currentWeek": {
             "type": "number"
@@ -2658,6 +5195,17 @@
           "createdAt"
         ]
       },
+      "UpdatePregnancyDto": {
+        "type": "object",
+        "properties": {
+          "lastMenstrualPeriod": {
+            "type": "string"
+          },
+          "babyName": {
+            "type": "string"
+          }
+        }
+      },
       "PregnancyResponseDto": {
         "type": "object",
         "properties": {
@@ -2671,6 +5219,10 @@
           "dueDate": {
             "format": "date-time",
             "type": "string"
+          },
+          "babyName": {
+            "type": "string",
+            "nullable": true
           },
           "currentWeek": {
             "type": "number"
@@ -2706,6 +5258,66 @@
           "progressPercent",
           "isActive",
           "createdAt"
+        ]
+      },
+      "SetBabyNameDto": {
+        "type": "object",
+        "properties": {
+          "babyName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "babyName"
+        ]
+      },
+      "BabyNameItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "isPopular": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "gender",
+          "meaning",
+          "origin",
+          "isPopular"
+        ]
+      },
+      "BabyNamesResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BabyNameItemDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total"
         ]
       },
       "WeekSummaryDto": {
@@ -2764,6 +5376,10 @@
           },
           "motherChanges": {
             "type": "string"
+          },
+          "letterFromBaby": {
+            "type": "string",
+            "nullable": true
           },
           "commonSymptoms": {
             "type": "array",
@@ -2893,6 +5509,9 @@
           "fertileWindowEnd": {
             "format": "date-time",
             "type": "string"
+          },
+          "isPeriodActive": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2905,7 +5524,8 @@
           "nextPeriodDate",
           "ovulationDate",
           "fertileWindowStart",
-          "fertileWindowEnd"
+          "fertileWindowEnd",
+          "isPeriodActive"
         ]
       },
       "PeriodResponseDto": {
@@ -2982,7 +5602,6 @@
         "type": "object",
         "properties": {
           "date": {
-            "format": "date-time",
             "type": "string"
           },
           "type": {
@@ -3108,6 +5727,29 @@
           "periodLength"
         ]
       },
+      "EndPeriodDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          }
+        }
+      },
+      "EndPeriodResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "periodLength": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "success",
+          "periodLength"
+        ]
+      },
       "SymptomItemDto": {
         "type": "object",
         "properties": {
@@ -3189,6 +5831,58 @@
           "symptoms"
         ]
       },
+      "SymptomHistoryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "type",
+          "severity",
+          "notes",
+          "createdAt"
+        ]
+      },
+      "SymptomHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SymptomHistoryItemDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ]
+      },
       "SymptomCategoryDto": {
         "type": "object",
         "properties": {
@@ -3219,6 +5913,115 @@
         },
         "required": [
           "categories"
+        ]
+      },
+      "LocationUpdateDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "accuracy": {
+            "type": "number"
+          },
+          "sharingEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SendNudgeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "CoupleChatDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nudgeId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "AnswerCoupleQuestionDto": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "answer"
+        ]
+      },
+      "PartnerInfoDto": {
+        "type": "object",
+        "properties": {
+          "partnerCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "isPaired": {
+            "type": "boolean"
+          },
+          "paired": {
+            "type": "boolean"
+          },
+          "pairedUserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "pairedUserEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "pairedUserId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "partnerCode",
+          "isPaired",
+          "paired"
+        ]
+      },
+      "PairPartnerDto": {
+        "type": "object",
+        "properties": {
+          "partnerCode": {
+            "type": "string",
+            "minLength": 4
+          }
+        },
+        "required": [
+          "partnerCode"
         ]
       },
       "CreateRelationshipDto": {
@@ -3446,6 +6249,9 @@
             "type": "number",
             "nullable": true
           },
+          "isEdited": {
+            "type": "boolean"
+          },
           "authorId": {
             "type": "string"
           },
@@ -3478,6 +6284,7 @@
           "content",
           "category",
           "pregnancyWeek",
+          "isEdited",
           "authorId",
           "authorName",
           "authorAvatarUrl",
@@ -3503,8 +6310,14 @@
           "page": {
             "type": "number"
           },
+          "limit": {
+            "type": "number"
+          },
           "totalPages": {
             "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3512,6 +6325,18 @@
           "total",
           "page",
           "totalPages"
+        ]
+      },
+      "EditPostDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "content"
         ]
       },
       "LikeResponseDto": {
@@ -3600,8 +6425,14 @@
           "page": {
             "type": "number"
           },
+          "limit": {
+            "type": "number"
+          },
           "totalPages": {
             "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3775,7 +6606,6 @@
         "type": "object",
         "properties": {
           "date": {
-            "format": "date-time",
             "type": "string"
           },
           "type": {
@@ -3978,6 +6808,165 @@
           "recentPosts"
         ]
       },
+      "InsightItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "info",
+              "tip",
+              "warning",
+              "danger",
+              "success"
+            ]
+          },
+          "module": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "nullable": true
+          },
+          "route": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "level",
+          "module",
+          "title",
+          "body",
+          "reason"
+        ]
+      },
+      "InsightsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "AdminStatsDto": {
+        "type": "object",
+        "properties": {
+          "totalUsers": {
+            "type": "number"
+          },
+          "activeUsers": {
+            "type": "number"
+          },
+          "adminUsers": {
+            "type": "number"
+          },
+          "newUsersToday": {
+            "type": "number"
+          },
+          "newUsersWeek": {
+            "type": "number"
+          },
+          "totalPosts": {
+            "type": "number"
+          },
+          "totalComments": {
+            "type": "number"
+          },
+          "deletedAccounts": {
+            "type": "number"
+          },
+          "pregnancyUsers": {
+            "type": "number"
+          },
+          "periodUsers": {
+            "type": "number"
+          },
+          "relationshipUsers": {
+            "type": "number"
+          },
+          "notificationsSent": {
+            "type": "number"
+          },
+          "pendingSetup": {
+            "type": "number"
+          },
+          "activePregnancies": {
+            "type": "number"
+          },
+          "symptomsLogged": {
+            "type": "number"
+          },
+          "symptomTypesCount": {
+            "type": "number"
+          },
+          "babyNamesCount": {
+            "type": "number"
+          },
+          "pregnancyWeeksCount": {
+            "type": "number"
+          },
+          "specialDatesCount": {
+            "type": "number"
+          },
+          "unreadNotifications": {
+            "type": "number"
+          },
+          "pairedCouples": {
+            "type": "number"
+          },
+          "openNudges": {
+            "type": "number"
+          },
+          "coupleMessages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "totalUsers",
+          "activeUsers",
+          "adminUsers",
+          "newUsersToday",
+          "newUsersWeek",
+          "totalPosts",
+          "totalComments",
+          "deletedAccounts",
+          "pregnancyUsers",
+          "periodUsers",
+          "relationshipUsers",
+          "notificationsSent",
+          "pendingSetup",
+          "activePregnancies",
+          "symptomsLogged",
+          "symptomTypesCount",
+          "babyNamesCount",
+          "pregnancyWeeksCount",
+          "specialDatesCount",
+          "unreadNotifications",
+          "pairedCouples",
+          "openNudges",
+          "coupleMessages"
+        ]
+      },
       "AdminUserDto": {
         "type": "object",
         "properties": {
@@ -3990,7 +6979,19 @@
           "name": {
             "type": "string"
           },
+          "nickname": {
+            "type": "string",
+            "nullable": true
+          },
+          "biography": {
+            "type": "string",
+            "nullable": true
+          },
           "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerCode": {
             "type": "string",
             "nullable": true
           },
@@ -4023,7 +7024,10 @@
           "id",
           "email",
           "name",
+          "nickname",
+          "biography",
           "avatarUrl",
+          "partnerCode",
           "googleId",
           "hasCompletedSetup",
           "isAdmin",
@@ -4058,6 +7062,65 @@
           "totalPages"
         ]
       },
+      "DeletedAccountDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "reason",
+          "note",
+          "createdAt"
+        ]
+      },
+      "AdminDeletedAccountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeletedAccountDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "totalPages"
+        ]
+      },
       "AdminUserDetailDto": {
         "type": "object",
         "properties": {
@@ -4070,7 +7133,19 @@
           "name": {
             "type": "string"
           },
+          "nickname": {
+            "type": "string",
+            "nullable": true
+          },
+          "biography": {
+            "type": "string",
+            "nullable": true
+          },
           "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "partnerCode": {
             "type": "string",
             "nullable": true
           },
@@ -4113,13 +7188,40 @@
           },
           "commentsCount": {
             "type": "number"
+          },
+          "period": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "pairedUser": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "symptomsCount": {
+            "type": "number"
+          },
+          "notificationsCount": {
+            "type": "number"
+          },
+          "periodCyclesCount": {
+            "type": "number"
           }
         },
         "required": [
           "id",
           "email",
           "name",
+          "nickname",
+          "biography",
           "avatarUrl",
+          "partnerCode",
           "googleId",
           "hasCompletedSetup",
           "isAdmin",
@@ -4129,8 +7231,43 @@
           "pregnancy",
           "relationship",
           "postsCount",
-          "commentsCount"
+          "commentsCount",
+          "period",
+          "settings",
+          "pairedUser",
+          "symptomsCount",
+          "notificationsCount",
+          "periodCyclesCount"
         ]
+      },
+      "UpdateAdminUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "biography": {
+            "type": "string"
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "hasCompletedSetup": {
+            "type": "boolean"
+          },
+          "activeModules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "UpdateWeekContentDto": {
         "type": "object",
@@ -4151,6 +7288,9 @@
             "type": "string"
           },
           "motherChanges": {
+            "type": "string"
+          },
+          "letterFromBaby": {
             "type": "string"
           },
           "commonSymptoms": {
@@ -4200,6 +7340,10 @@
           "motherChanges": {
             "type": "string"
           },
+          "letterFromBaby": {
+            "type": "string",
+            "nullable": true
+          },
           "commonSymptoms": {
             "type": "array",
             "items": {
@@ -4243,6 +7387,21 @@
             "type": "string"
           },
           "userId": {
+            "type": "string"
+          },
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "module": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "targetModule": {
             "type": "string"
           }
         },
@@ -4373,6 +7532,201 @@
           "total",
           "page",
           "totalPages"
+        ]
+      },
+      "AdminUpdatePostDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminUpdateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "AdminUpdateSymptomTypeDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        }
+      },
+      "AdminUpdateBabyNameDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "isPopular": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AdminUpdateArticleDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AdminUpdateFaqDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminUpdateMythDto": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatMessageItemDto": {
+        "type": "object",
+        "properties": {
+          "sender": {
+            "type": "string",
+            "example": "user"
+          },
+          "text": {
+            "type": "string",
+            "example": "Bugün semptomlarım normal mi?"
+          }
+        }
+      },
+      "ChatAssistantDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Kullanıcının asistan sorusu",
+            "example": "Bugün döngümün hangi evresindeyim?"
+          },
+          "history": {
+            "description": "Önceki mesaj geçmişi",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageItemDto"
+            }
+          }
+        },
+        "required": [
+          "question"
+        ]
+      },
+      "AssistantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "rep-1700000000"
+          },
+          "sender": {
+            "type": "string",
+            "example": "assistant"
+          },
+          "text": {
+            "type": "string",
+            "example": "Foliküler evredesiniz. Östrojen artışı enerjinizi destekler."
+          },
+          "options": {
+            "example": [
+              "Beslenme önerileri",
+              "Semptom kaydet"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "Şimdi"
+          }
+        },
+        "required": [
+          "id",
+          "sender",
+          "text",
+          "options",
+          "timestamp"
+        ]
+      },
+      "ReportAssistantResponseDto": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "description": "Şikayet edilen asistan mesaj IDsi"
+          },
+          "question": {
+            "type": "string",
+            "description": "Kullanıcının sorduğu soru"
+          },
+          "responseText": {
+            "type": "string",
+            "description": "Şikayet edilen yapay zeka yanıt metni"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Şikayet nedeni",
+            "example": "Yanıltıcı tıbbi bilgi"
+          }
+        },
+        "required": [
+          "responseText",
+          "reason"
         ]
       }
     }

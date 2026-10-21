@@ -284,4 +284,53 @@ export class AdminController {
     await this.adminService.assertAdmin((req as any).user.id);
     return this.adminService.updateMythContent(id, dto);
   }
+
+  // Moderation Endpoints
+  @UseGuards(JwtAuthGuard)
+  @Get('api/admin/moderation/posts')
+  async getReportedPosts(
+    @Req() req: Request,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    await this.adminService.assertAdmin((req as any).user.id);
+    return this.adminService.getReportedPosts(page, limit);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('api/admin/moderation/posts/:postId')
+  async deleteReportedPost(
+    @Req() req: Request,
+    @Param('postId') postId: string,
+  ): Promise<SuccessResponseDto> {
+    await this.adminService.assertAdmin((req as any).user.id);
+    return this.adminService.deleteReportedPost(postId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('api/admin/moderation/posts/:postId/dismiss')
+  async dismissPostReports(
+    @Req() req: Request,
+    @Param('postId') postId: string,
+  ): Promise<SuccessResponseDto> {
+    await this.adminService.assertAdmin((req as any).user.id);
+    return this.adminService.dismissPostReports(postId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('api/admin/moderation/ai-responses')
+  async getReportedAiResponses(@Req() req: Request) {
+    await this.adminService.assertAdmin((req as any).user.id);
+    return this.adminService.getReportedAiResponses();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('api/admin/moderation/ai-responses/:reportId')
+  async dismissAiResponseReport(
+    @Req() req: Request,
+    @Param('reportId') reportId: string,
+  ): Promise<SuccessResponseDto> {
+    await this.adminService.assertAdmin((req as any).user.id);
+    return this.adminService.dismissAiResponseReport(reportId);
+  }
 }

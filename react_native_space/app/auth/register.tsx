@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandLogo } from '@/src/components/BrandLogo';
@@ -19,6 +19,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [gender, setGender] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +41,14 @@ export default function RegisterScreen() {
     }
     if (password.length < 6) {
       setError(language === 'en' ? 'Password must be at least 6 characters' : 'Şifre en az 6 karakter olmalı');
+      return;
+    }
+    if (!isAgeConfirmed) {
+      setError(language === 'en' ? 'You must confirm that you are at least 18 years old' : 'Uygulamayı kullanmak için 18 yaşından büyük olduğunuzu onaylamalısınız');
+      return;
+    }
+    if (!isTermsAccepted) {
+      setError(language === 'en' ? 'Please accept the Terms of Service & Privacy Policy' : 'Lütfen Kullanım Koşulları ve Gizlilik Politikası\'nı onaylayın');
       return;
     }
 
@@ -131,6 +141,73 @@ export default function RegisterScreen() {
             </View>
           </View>
 
+          {/* Age and Legal Consent */}
+          <View style={styles.consentSection}>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => setIsAgeConfirmed(!isAgeConfirmed)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isAgeConfirmed }}
+            >
+              <Ionicons
+                name={isAgeConfirmed ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={isAgeConfirmed ? colors.primary : colors.textMuted}
+                style={{ marginRight: 10, marginTop: 1 }}
+              />
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                {language === 'en'
+                  ? 'I confirm that I am at least 18 years old.'
+                  : '18 yaşından büyük olduğumu ve uygulamayı kişisel sağlık takibim için kullandığımı onaylıyorum.'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => setIsTermsAccepted(!isTermsAccepted)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isTermsAccepted }}
+            >
+              <Ionicons
+                name={isTermsAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={isTermsAccepted ? colors.primary : colors.textMuted}
+                style={{ marginRight: 10, marginTop: 1 }}
+              />
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                {language === 'en' ? (
+                  <>
+                    I accept the{' '}
+                    <Text
+                      style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                    >
+                      Terms of Service & Privacy Policy
+                    </Text>
+                    .
+                  </>
+                ) : (
+                  <>
+                    <Text
+                      style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                    >
+                      Kullanım Koşulları
+                    </Text>{' '}
+                    ve{' '}
+                    <Text
+                      style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                    >
+                      Gizlilik Politikası
+                    </Text>
+                    'nı okudum, kabul ediyorum.
+                  </>
+                )}
+              </Text>
+            </Pressable>
+          </View>
+
           <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleRegister} disabled={isLoading}>
             {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>{t.auth.register}</Text>}
           </Pressable>
@@ -172,6 +249,9 @@ const styles = StyleSheet.create({
   inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, height: 52 },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16 },
+  consentSection: { gap: 12, marginVertical: 6 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  checkboxLabel: { flex: 1, fontSize: 13, lineHeight: 18 },
   button: { height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },

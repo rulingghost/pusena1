@@ -39,7 +39,9 @@ export class PostsListResponseDto {
   @ApiProperty({ type: [CommunityPostResponseDto] }) items: CommunityPostResponseDto[];
   @ApiProperty() total: number;
   @ApiProperty() page: number;
+  @ApiProperty({ required: false }) limit?: number;
   @ApiProperty() totalPages: number;
+  @ApiProperty({ required: false }) hasMore?: boolean;
 }
 
 export class CommentResponseDto {
@@ -55,7 +57,9 @@ export class CommentsListResponseDto {
   @ApiProperty({ type: [CommentResponseDto] }) items: CommentResponseDto[];
   @ApiProperty() total: number;
   @ApiProperty() page: number;
+  @ApiProperty({ required: false }) limit?: number;
   @ApiProperty() totalPages: number;
+  @ApiProperty({ required: false }) hasMore?: boolean;
 }
 
 export class LikeResponseDto {

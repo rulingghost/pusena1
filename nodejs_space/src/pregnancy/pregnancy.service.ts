@@ -1,6 +1,8 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { foldTr } from '../common/text';
+import { assertUserNotMale } from '../common/gender-modules';
+import { DAY_MS, parseDateOnly, toCalendarUtc, calculatePregnancyProgress } from '../common/dates';
 
 const INITIAL_BABY_NAMES = [
   // Kız İsimleri
@@ -235,36 +237,33 @@ export class PregnancyService {
   }
 
   async createPregnancy(userId: string, lmpStr: string, babyName?: string) {
+    await assertUserNotMale(this.prisma, userId, 'gebelik');
     const existing = await this.prisma.pregnancy.findUnique({ where: { userId } });
     if (existing) throw new ConflictException('Zaten aktif bir gebelik kaydınız var');
 
-    const lmp = new Date(lmpStr);
-    const dueDate = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000); // Naegele's rule
-    const { week, day } = this.calculateWeekDay(lmp);
+    const lmp = parseDateOnly(lmpStr);
+    const dueDate = new Date(lmp.getTime() + 280 * DAY_MS); // Naegele's rule
+    const progress = calculatePregnancyProgress(lmp, dueDate);
 
     const pregnancy = await this.prisma.pregnancy.create({
       data: { userId, lastMenstrualPeriod: lmp, dueDate, babyName: babyName?.trim() || null },
     });
 
-    const daysRemaining = Math.max(0, Math.ceil((dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-    const totalDays = 280;
-    const elapsed = totalDays - daysRemaining;
-    const progressPercent = Math.min(100, Math.round((elapsed / totalDays) * 100));
-    const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
-
     return {
       id: pregnancy.id, lastMenstrualPeriod: pregnancy.lastMenstrualPeriod,
       dueDate: pregnancy.dueDate, babyName: pregnancy.babyName,
-      currentWeek: week, currentDay: day, daysRemaining, trimester, progressPercent,
+      currentWeek: progress.week, currentDay: progress.day, daysRemaining: progress.daysRemaining,
+      trimester: progress.trimester, progressPercent: progress.progressPercent,
       isActive: pregnancy.isActive, createdAt: pregnancy.createdAt,
     };
   }
 
   async updatePregnancy(userId: string, lmpStr?: string, babyName?: string) {
+    await assertUserNotMale(this.prisma, userId, 'gebelik');
     const current = await this.prisma.pregnancy.findUnique({ where: { userId } });
-    const lmp = lmpStr ? new Date(lmpStr) : current?.lastMenstrualPeriod || new Date();
-    const dueDate = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000);
-    const { week, day } = this.calculateWeekDay(lmp);
+    const lmp = lmpStr ? parseDateOnly(lmpStr) : current?.lastMenstrualPeriod || toCalendarUtc(new Date());
+    const dueDate = new Date(lmp.getTime() + 280 * DAY_MS);
+    const progress = calculatePregnancyProgress(lmp, dueDate);
 
     const pregnancy = await this.prisma.pregnancy.upsert({
       where: { userId },
@@ -283,44 +282,38 @@ export class PregnancyService {
       },
     });
 
-    const daysRemaining = Math.max(0, Math.ceil((dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-    const totalDays = 280;
-    const elapsed = totalDays - daysRemaining;
-    const progressPercent = Math.min(100, Math.round((elapsed / totalDays) * 100));
-    const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
-
     return {
       id: pregnancy.id, lastMenstrualPeriod: pregnancy.lastMenstrualPeriod, dueDate: pregnancy.dueDate,
       babyName: pregnancy.babyName,
-      currentWeek: week, currentDay: day, daysRemaining, trimester, progressPercent,
+      currentWeek: progress.week, currentDay: progress.day, daysRemaining: progress.daysRemaining,
+      trimester: progress.trimester, progressPercent: progress.progressPercent,
       isActive: pregnancy.isActive, createdAt: pregnancy.createdAt,
     };
   }
 
   async setBabyName(userId: string, babyName: string) {
+    await assertUserNotMale(this.prisma, userId, 'gebelik');
     return this.updatePregnancy(userId, undefined, babyName);
   }
 
   async getPregnancy(userId: string) {
+    await assertUserNotMale(this.prisma, userId, 'gebelik');
     const p = await this.prisma.pregnancy.findUnique({ where: { userId } });
     if (!p) return null;
 
-    const { week, day } = this.calculateWeekDay(p.lastMenstrualPeriod);
-    const daysRemaining = Math.max(0, Math.ceil((p.dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-    const totalDays = 280;
-    const elapsed = totalDays - daysRemaining;
-    const progressPercent = Math.min(100, Math.round((elapsed / totalDays) * 100));
-    const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
+    const progress = calculatePregnancyProgress(p.lastMenstrualPeriod, p.dueDate);
 
     return {
       id: p.id, lastMenstrualPeriod: p.lastMenstrualPeriod, dueDate: p.dueDate,
       babyName: p.babyName,
-      currentWeek: week, currentDay: day, daysRemaining, trimester, progressPercent,
+      currentWeek: progress.week, currentDay: progress.day, daysRemaining: progress.daysRemaining,
+      trimester: progress.trimester, progressPercent: progress.progressPercent,
       isActive: p.isActive, createdAt: p.createdAt,
     };
   }
 
   async deletePregnancy(userId: string) {
+    await assertUserNotMale(this.prisma, userId, 'gebelik');
     await this.prisma.pregnancy.deleteMany({ where: { userId } });
     return { success: true };
   }
@@ -328,8 +321,11 @@ export class PregnancyService {
   async getWeekContent(weekNumber: number, userId?: string) {
     let babyName: string | null = null;
     if (userId) {
-      const p = await this.prisma.pregnancy.findUnique({ where: { userId } });
-      babyName = p?.babyName ?? null;
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { gender: true } });
+      if (user?.gender !== 'male') {
+        const p = await this.prisma.pregnancy.findUnique({ where: { userId } });
+        babyName = p?.babyName ?? null;
+      }
     }
 
     const content = await this.prisma.pregnancyWeekContent.findUnique({ where: { weekNumber } });
@@ -366,6 +362,55 @@ export class PregnancyService {
   }
 
   async getBabyNames(gender?: string, search?: string) {
+    try {
+      if (this.prisma?.babyName) {
+        // Auto-seed if database table is currently empty
+        const count = await this.prisma.babyName.count().catch(() => -1);
+        if (count === 0) {
+          await this.prisma.babyName
+            .createMany({
+              data: INITIAL_BABY_NAMES,
+              skipDuplicates: true,
+            })
+            .catch(() => {});
+        }
+
+        const where: any = {};
+        if (gender && gender !== 'all') {
+          where.OR = [{ gender }, { gender: 'unisex' }];
+        }
+        if (search && search.trim()) {
+          const s = search.trim();
+          const searchCondition = {
+            OR: [
+              { name: { contains: s, mode: 'insensitive' } },
+              { meaning: { contains: s, mode: 'insensitive' } },
+              { origin: { contains: s, mode: 'insensitive' } },
+            ],
+          };
+          if (where.OR) {
+            where.AND = [searchCondition];
+          } else {
+            where.OR = searchCondition.OR;
+          }
+        }
+
+        const items = await this.prisma.babyName.findMany({
+          where: Object.keys(where).length ? where : undefined,
+          orderBy: { name: 'asc' },
+        });
+
+        if (items && items.length > 0) {
+          return {
+            items,
+            total: items.length,
+          };
+        }
+      }
+    } catch {
+      // In offline/test environments, fallback gracefully to in-memory list
+    }
+
     let list = INITIAL_BABY_NAMES;
 
     if (gender && gender !== 'all') {
@@ -384,6 +429,7 @@ export class PregnancyService {
   }
 
   async syncPostpartumReminders(userId: string, birthDateStr: string) {
+    await assertUserNotMale(this.prisma, userId, 'lohusalık/gebelik');
     const birth = new Date(birthDateStr);
     if (Number.isNaN(birth.getTime())) return { day: null, created: 0, tasks: [] as Array<{ id: string; title: string; body: string }> };
 
@@ -426,10 +472,7 @@ export class PregnancyService {
   }
 
   calculateWeekDay(lmp: Date) {
-    const diffMs = Date.now() - lmp.getTime();
-    const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-    const week = Math.floor(totalDays / 7) + 1;
-    const day = (totalDays % 7) + 1;
-    return { week: Math.max(1, Math.min(42, week)), day: Math.max(1, Math.min(7, day)) };
+    const progress = calculatePregnancyProgress(lmp);
+    return { week: progress.week, day: progress.day };
   }
 }

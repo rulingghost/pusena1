@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SymptomItemDto } from './dto/symptoms.dto';
+import { assertUserNotMale } from '../common/gender-modules';
 
 @Injectable()
 export class SymptomsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createSymptoms(userId: string, dateStr: string, items: SymptomItemDto[]) {
+    await assertUserNotMale(this.prisma, userId, 'belirti');
     const date = new Date(dateStr);
     // Remove existing symptoms for this date
     await this.prisma.symptom.deleteMany({ where: { userId, date } });
@@ -26,6 +28,7 @@ export class SymptomsService {
   }
 
   async getSymptoms(userId: string, dateStr: string) {
+    await assertUserNotMale(this.prisma, userId, 'belirti');
     const date = new Date(dateStr);
     const symptoms = await this.prisma.symptom.findMany({
       where: { userId, date },
@@ -39,6 +42,7 @@ export class SymptomsService {
   }
 
   async getHistory(userId: string) {
+    await assertUserNotMale(this.prisma, userId, 'belirti');
     const symptoms = await this.prisma.symptom.findMany({
       where: { userId },
       orderBy: { date: 'desc' },
@@ -59,6 +63,7 @@ export class SymptomsService {
   }
 
   async deleteSymptom(userId: string, symptomId: string) {
+    await assertUserNotMale(this.prisma, userId, 'belirti');
     await this.prisma.symptom.deleteMany({
       where: { id: symptomId, userId },
     });

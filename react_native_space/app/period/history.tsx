@@ -13,6 +13,9 @@ import { DatePickerModal } from '@/src/components/DatePickerModal';
 import { getSymptomInsights } from '@/src/utils/symptomInsights';
 import { localDateKey } from '@/src/utils/dateOnly';
 
+import { useAuth } from '@/src/contexts/AuthContext';
+import { isMaleUser } from '@/src/utils/gender';
+
 interface SymptomHistoryItem {
   id: string;
   date: string;
@@ -27,17 +30,31 @@ export default function HistoryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const male = isMaleUser(user);
+
   const [tab, setTab] = useState<'cycles' | 'symptoms'>('cycles');
   const [refreshing, setRefreshing] = useState(false);
   const [endCycleId, setEndCycleId] = useState<string | null>(null);
   const [endCycleStart, setEndCycleStart] = useState<Date>(new Date());
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  const { data: cyclesData, isLoading: cyclesLoading, refetch: refetchCycles } = usePeriodControllerHistory({ page: 1, limit: 50 });
+  React.useEffect(() => {
+    if (male) {
+      Alert.alert('Erişim Kısıtlandı', 'Döngü geçmişi erkek kullanıcılar için geçerli değildir.');
+      router.replace('/tabs/home');
+    }
+  }, [male, router]);
+
+  const { data: cyclesData, isLoading: cyclesLoading, refetch: refetchCycles } = usePeriodControllerHistory(
+    { page: 1, limit: 50 },
+    { query: { enabled: !male } },
+  );
 
   const { data: symptomsData, isLoading: symptomsLoading, refetch: refetchSymptoms } = useQuery<{ items: SymptomHistoryItem[]; total: number }>({
     queryKey: ['/api/symptoms/history'],
     queryFn: () => customFetch('/api/symptoms/history'),
+    enabled: !male,
   });
 
   const onRefresh = useCallback(async () => {

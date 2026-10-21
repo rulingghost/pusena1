@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/src/api/queryClient';
 import { AuthProvider } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useAppTheme } from '@/src/contexts/ThemeContext';
 import { LanguageProvider } from '@/src/contexts/LanguageContext';
@@ -14,20 +15,6 @@ import { AppAlertProvider } from '@/src/components/AppAlert';
 import { PartnerLocationSync } from '@/src/location/PartnerLocationSync';
 import { LiveAlertsSync } from '@/src/notifications/LiveAlertsSync';
 import '@/src/location/backgroundShare';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 2 * 60 * 1000,
-      gcTime: 24 * 60 * 60 * 1000,
-      retry: (failureCount, error) => {
-        const status = (error as { status?: number } | undefined)?.status;
-        if (status === 401 || status === 404) return false;
-        return failureCount < 1;
-      },
-    },
-  },
-});
 
 watchQueryCache(queryClient);
 

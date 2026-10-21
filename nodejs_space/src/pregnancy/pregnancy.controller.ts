@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PregnancyService } from './pregnancy.service';
 import {
@@ -22,21 +22,31 @@ export class PregnancyController {
   constructor(private readonly pregnancyService: PregnancyService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Gebelik kaydı oluştur' })
+  @ApiOkResponse({ type: CreatePregnancyResponseDto })
   async create(@Req() req: Request, @Body() dto: CreatePregnancyDto): Promise<CreatePregnancyResponseDto> {
     return this.pregnancyService.createPregnancy((req as any).user.id, dto.lastMenstrualPeriod, dto.babyName);
   }
 
   @Put()
+  @ApiOperation({ summary: 'Gebelik kaydı güncelle' })
+  @ApiOkResponse({ type: PregnancyResponseDto })
   async update(@Req() req: Request, @Body() dto: UpdatePregnancyDto): Promise<PregnancyResponseDto> {
     return this.pregnancyService.updatePregnancy((req as any).user.id, dto.lastMenstrualPeriod, dto.babyName);
   }
 
   @Post('baby-name')
+  @ApiOperation({ summary: 'Bebek ismi belirle' })
+  @ApiOkResponse({ type: PregnancyResponseDto })
   async setBabyName(@Req() req: Request, @Body() dto: SetBabyNameDto): Promise<PregnancyResponseDto> {
     return this.pregnancyService.setBabyName((req as any).user.id, dto.babyName);
   }
 
   @Get('baby-names')
+  @ApiOperation({ summary: 'Bebek isimleri listesini getir' })
+  @ApiQuery({ name: 'gender', required: false, enum: ['girl', 'boy', 'unisex', 'all'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiOkResponse({ type: BabyNamesResponseDto })
   async getBabyNames(
     @Query('gender') gender?: string,
     @Query('search') search?: string,
@@ -45,6 +55,8 @@ export class PregnancyController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Mevcut aktif gebelik detaylarını getir' })
+  @ApiOkResponse({ type: PregnancyResponseDto })
   async get(@Req() req: Request): Promise<PregnancyResponseDto | null> {
     return this.pregnancyService.getPregnancy((req as any).user.id);
   }

@@ -2,12 +2,17 @@ import { useEffect } from 'react';
 import { useSettingsControllerGetSettings, useSpecialDatesControllerGetAll, usePregnancyControllerGet, usePeriodControllerGet } from '@/src/api/generated/api';
 import { syncBloomAlerts, syncDailyQuestionAlert, type AlertPrefs } from '@/src/notifications/bloomAlerts';
 import { useCoupleQuestions } from '@/src/api/bloomClient';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { isMaleUser } from '@/src/utils/gender';
 
 export function useBloomAlertSync(enabled: boolean) {
+  const { user } = useAuth();
+  const male = isMaleUser(user);
+
   const { data: settings } = useSettingsControllerGetSettings({ query: { enabled } });
   const { data: dates } = useSpecialDatesControllerGetAll({ page: 1, limit: 50 }, { query: { enabled } });
-  const { data: pregnancy } = usePregnancyControllerGet({ query: { enabled, retry: false } });
-  const { data: period } = usePeriodControllerGet({ query: { enabled, retry: false } });
+  const { data: pregnancy } = usePregnancyControllerGet({ query: { enabled: enabled && !male, retry: false } });
+  const { data: period } = usePeriodControllerGet({ query: { enabled: enabled && !male, retry: false } });
   const { data: coupleQ } = useCoupleQuestions(enabled);
 
   useEffect(() => {
@@ -17,7 +22,7 @@ export function useBloomAlertSync(enabled: boolean) {
       medicationReminder: n.medicationReminder !== false,
       countdownReminder: n.countdownReminder !== false,
       specialDateReminder: n.specialDateReminder !== false,
-      periodReminder: n.periodReminder !== false,
+      periodReminder: !male && n.periodReminder !== false,
       reminderOffsets: Array.isArray(n.reminderOffsets) ? n.reminderOffsets : [30, 7, 3, 1],
     };
 
@@ -31,8 +36,8 @@ export function useBloomAlertSync(enabled: boolean) {
     const nextPeriodRaw = (period as any)?.currentCycle?.nextPeriodDate ?? (period as any)?.nextPeriodDate;
     const nextPeriod = nextPeriodRaw ? new Date(nextPeriodRaw) : null;
 
-    syncBloomAlerts({ prefs, specialDates, dueDate: due, nextPeriod })
+    syncBloomAlerts({ prefs, specialDates, dueDate: due, nextPeriod, userId: user?.id })
       .then(() => syncDailyQuestionAlert(!!coupleQ?.today?.myAnswer))
       .catch(() => {});
-  }, [enabled, settings, dates, pregnancy, period, coupleQ?.today?.myAnswer]);
+  }, [enabled, settings, dates, pregnancy, period, coupleQ?.today?.myAnswer, user?.id]);
 }

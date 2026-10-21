@@ -15,6 +15,7 @@ import {
 } from '@/src/notifications/bloomAlerts';
 import { localDateKey } from '@/src/utils/dateOnly';
 import { useSettingsControllerGetSettings } from '@/src/api/generated/api';
+import { useAuth } from '@/src/contexts/AuthContext';
 
 const PRESETS: { times: number; label: string; hours: string[] }[] = [
   { times: 1, label: 'Günde 1', hours: ['09:00'] },
@@ -38,6 +39,7 @@ export default function MedicationsScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const { data: settings } = useSettingsControllerGetSettings();
 
   const [meds, setMeds] = useState<MedItem[]>([]);
@@ -48,7 +50,7 @@ export default function MedicationsScreen() {
 
   const persist = useCallback(async (updated: MedItem[]) => {
     setMeds(updated);
-    await saveMedications(updated);
+    await saveMedications(updated, user?.id);
     const n = settings?.notifications as any;
     await syncBloomAlerts({
       prefs: {
@@ -58,13 +60,14 @@ export default function MedicationsScreen() {
         periodReminder: n?.periodReminder !== false,
         reminderOffsets: n?.reminderOffsets ?? [30, 7, 3, 1],
       },
+      userId: user?.id,
     });
-  }, [settings]);
+  }, [settings, user?.id]);
 
   useEffect(() => {
-    loadMedications().then(setMeds);
+    loadMedications(user?.id).then(setMeds);
     ensureNotificationPermission();
-  }, []);
+  }, [user?.id]);
 
   const takenToday = (med: MedItem, time: string) => med.takenOn?.[time] === todayKey();
 

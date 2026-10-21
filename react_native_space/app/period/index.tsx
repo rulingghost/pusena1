@@ -8,10 +8,14 @@ import { Colors } from '@/src/theme/colors';
 import { usePeriodControllerGet, usePeriodControllerCalendar, usePeriodControllerStart } from '@/src/api/generated/api';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { DatePickerModal } from '@/src/components/DatePickerModal';
+import { MedicalDisclaimer } from '@/src/components/MedicalDisclaimer';
 import { customFetch } from '@/src/api/customFetch';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/src/utils/dateOnly';
+
+import { useAuth } from '@/src/contexts/AuthContext';
+import { isMaleUser } from '@/src/utils/gender';
 
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -20,16 +24,31 @@ export default function PeriodScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const male = isMaleUser(user);
+
   const now = new Date();
   const [viewMonth, setViewMonth] = useState(now.getMonth() + 1);
   const [viewYear, setViewYear] = useState(now.getFullYear());
-  const { data: periodData, isLoading, refetch } = usePeriodControllerGet();
-  const { data: calendarData, refetch: refetchCal } = usePeriodControllerCalendar({ month: viewMonth, year: viewYear });
+  const { data: periodData, isLoading, refetch } = usePeriodControllerGet({
+    query: { enabled: !male },
+  });
+  const { data: calendarData, refetch: refetchCal } = usePeriodControllerCalendar(
+    { month: viewMonth, year: viewYear },
+    { query: { enabled: !male } },
+  );
   const startMutation = usePeriodControllerStart();
   const [refreshing, setRefreshing] = useState(false);
   const [periodStartedToday, setPeriodStartedToday] = useState(false);
   const [showStartFeedback, setShowStartFeedback] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  useEffect(() => {
+    if (male) {
+      Alert.alert('Erişim Kısıtlandı', 'Regl takibi erkek kullanıcılar için geçerli değildir.');
+      router.replace('/tabs/home');
+    }
+  }, [male, router]);
 
   const todayStr = localDateKey(now);
 
@@ -362,9 +381,7 @@ export default function PeriodScreen() {
           ))}
         </View>
 
-        <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
-          🌸 Bu bir tahmindir, kesin doğum kontrol yöntemi değildir.
-        </Text>
+        <MedicalDisclaimer variant="fertility" style={{ marginHorizontal: 4, marginTop: 8 }} />
         <View style={{ height: 28 }} />
 
         {/* Date Picker Modal for Past Period Date */}

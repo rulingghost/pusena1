@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { getApiBase } from '@/src/api/apiBase';
+import { customFetch, ApiError } from '@/src/api/customFetch';
 
 export const PARTNER_LOCATION_TASK = 'pusena-partner-location';
 
@@ -14,17 +14,18 @@ async function postLocation(body: {
   longitude?: number;
   accuracy?: number;
 }) {
-  const token = await AsyncStorage.getItem('auth_token').catch(() => null);
-  if (!token) return;
-  await fetch(`${getApiBase()}/api/relationship/live/location`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  }).catch(() => {});
+  try {
+    return await customFetch('/api/relationship/live/location', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      await stopPartnerLocationShare().catch(() => {});
+      await AsyncStorage.setItem('partner_location_sharing', '0').catch(() => {});
+    }
+    throw err;
+  }
 }
 
 if (Platform.OS !== 'web') {
@@ -33,12 +34,16 @@ if (Platform.OS !== 'web') {
     const locations = (data as { locations?: Location.LocationObject[] } | undefined)?.locations;
     const last = locations?.[locations.length - 1];
     if (!last) return;
-    await postLocation({
-      sharingEnabled: true,
-      latitude: last.coords.latitude,
-      longitude: last.coords.longitude,
-      accuracy: last.coords.accuracy ?? undefined,
-    });
+    try {
+      await postLocation({
+        sharingEnabled: true,
+        latitude: last.coords.latitude,
+        longitude: last.coords.longitude,
+        accuracy: last.coords.accuracy ?? undefined,
+      });
+    } catch {
+      // Session error handles task stoppage inside postLocation
+    }
   });
 }
 
@@ -101,15 +106,6 @@ export async function stopPartnerLocationShare() {
  */
 export async function publishPartnerLocationOnce() {
   const cached = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }).catch(() => null);
-  if (cached) {
-    void postLocation({
-      sharingEnabled: true,
-      latitude: cached.coords.latitude,
-      longitude: cached.coords.longitude,
-      accuracy: cached.coords.accuracy ?? undefined,
-    });
-  }
-
   const pos =
     (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null)) ?? cached;
   if (!pos) throw new Error('Konum alınamadı. Konum servisleri açık mı?');

@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 
-const KEY = 'bloom_baby_profile';
+const FEATURE_KEY = 'baby_profile';
 
 export interface BabyProfile {
   birthDate: string | null; // YYYY-MM-DD
@@ -9,11 +9,10 @@ export interface BabyProfile {
 
 const DEFAULT: BabyProfile = { birthDate: null, sex: 'unknown' };
 
-export async function loadBabyProfile(): Promise<BabyProfile> {
+export async function loadBabyProfile(userId?: string | null): Promise<BabyProfile> {
   try {
-    const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return DEFAULT;
-    const parsed = JSON.parse(raw) as BabyProfile;
+    const parsed = await getWellnessData<BabyProfile>(FEATURE_KEY, userId);
+    if (!parsed) return DEFAULT;
     return {
       birthDate: parsed.birthDate || null,
       sex: parsed.sex === 'girl' || parsed.sex === 'boy' ? parsed.sex : 'unknown',
@@ -23,8 +22,8 @@ export async function loadBabyProfile(): Promise<BabyProfile> {
   }
 }
 
-export async function saveBabyProfile(profile: BabyProfile): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(profile));
+export async function saveBabyProfile(profile: BabyProfile, userId?: string | null): Promise<void> {
+  await setWellnessData(FEATURE_KEY, profile, userId);
 }
 
 export function ageInDays(birthDate: string | null, now = new Date()): number | null {

@@ -20,11 +20,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/src/utils/dateOnly';
 import { finishOnboarding } from '@/src/utils/onboarding';
+import { isMaleUser } from '@/src/utils/gender';
 
 export default function PeriodSetupScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user, refreshUser } = useAuth();
+
+  React.useEffect(() => {
+    if (isMaleUser(user)) {
+      router.replace('/tabs/home');
+    }
+  }, [user]);
 
   const [lastPeriod, setLastPeriod] = useState(new Date());
   const [cycleLength, setCycleLength] = useState(28);

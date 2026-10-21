@@ -16,7 +16,7 @@ const MENU_ITEMS = [
   { icon: 'people' as const, label: 'Kullanıcı Yönetimi', desc: 'Görüntüle, düzenle, sil', route: '/admin/users', color: '#6366F1', stat: 'totalUsers' as const },
   { icon: 'trash' as const, label: 'Silinen Hesaplar', desc: 'Denetim kaydı ve silme nedenleri', route: '/admin/deleted-accounts', color: Colors.danger, stat: 'deletedAccounts' as const },
   { icon: 'chatbubbles' as const, label: 'Topluluk Moderasyonu', desc: 'Gönderi ve yorum yönetimi', route: '/admin/posts', color: Colors.community, stat: 'totalPosts' as const },
-  { icon: 'notifications' as const, label: 'Bildirim Merkezi', desc: 'Hedefli anlık bildirimler', route: '/admin/notifications', color: '#F59E0B', stat: 'notificationsSent' as const },
+  { icon: 'notifications' as const, label: 'Bildirim Merkezi', desc: 'Hedefli duyuru ve ipuçları', route: '/admin/notifications', color: '#F59E0B', stat: 'notificationsSent' as const },
   { icon: 'library' as const, label: 'İçerik Yönetimi', desc: 'Haftalar, semptomlar, makaleler, SSS', route: '/admin/pregnancy-content', color: Colors.pregnancy, stat: 'pregnancyWeeksCount' as const },
 ];
 

@@ -135,7 +135,7 @@ export default function AdminNotificationsScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={{ paddingTop: insets.top + 8 }}>
-          <AdminHeader title="Bildirim Merkezi" subtitle="Hedefli push bildirimleri gönder" />
+          <AdminHeader title="Bildirim Merkezi" subtitle="Kullanıcı bildirim merkezine duyuru ve ipucu gönder" />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

@@ -5,8 +5,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 
 interface Contraction {
   id: string;
@@ -15,12 +16,18 @@ interface Contraction {
   intervalMinutes?: number;
 }
 
-const KEY = 'contraction_history';
+const FEATURE_KEY = 'contraction_history';
 
 export default function ContractionTimerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
 
   const [isContracting, setIsContracting] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -28,21 +35,24 @@ export default function ContractionTimerScreen() {
   const startedAt = useRef(0);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((data) => {
-      if (!data) return;
-      try {
-        const parsed = JSON.parse(data) as Contraction[];
-        const dayAgo = Date.now() - 36 * 60 * 60 * 1000;
-        setContractions(parsed.filter((c) => c.startTime >= dayAgo).slice(0, 80));
-      } catch {}
+    let active = true;
+    getWellnessData<Contraction[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (!active || !saved) return;
+      const dayAgo = Date.now() - 36 * 60 * 60 * 1000;
+      setContractions(saved.filter((c) => c.startTime >= dayAgo).slice(0, 80));
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-    if (isContracting) {
+    if (isContracting && startedAt.current > 0) {
       activateKeepAwakeAsync().catch(() => {});
-      interval = setInterval(() => setSeconds((s) => s + 1), 1000);
+      interval = setInterval(() => {
+        setSeconds(Math.max(0, Math.floor((Date.now() - startedAt.current) / 1000)));
+      }, 1000);
     } else {
       deactivateKeepAwake();
     }
@@ -54,7 +64,7 @@ export default function ContractionTimerScreen() {
 
   const persist = (updated: Contraction[]) => {
     setContractions(updated);
-    AsyncStorage.setItem(KEY, JSON.stringify(updated));
+    void setWellnessData(FEATURE_KEY, updated, user?.id);
   };
 
   const lastHour = useMemo(() => {
@@ -83,7 +93,10 @@ export default function ContractionTimerScreen() {
     }
     setIsContracting(false);
     const startTime = startedAt.current || Date.now();
-    const durationSeconds = seconds;
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+    startedAt.current = 0;
+    setSeconds(0);
+
     let intervalMins: number | undefined;
     if (contractions.length > 0) {
       intervalMins = Math.max(0, Math.round((startTime - contractions[0].startTime) / 60000));
@@ -98,8 +111,8 @@ export default function ContractionTimerScreen() {
 
     if (intervalMins != null && intervalMins <= 5 && durationSeconds >= 45) {
       Alert.alert(
-        'Sık ve uzun kasılma',
-        'Bu bir tanı değildir. 5-1-1 kuralı (5 dk ara, ~1 dk süre, 1 saat) doluyorsa hekiminizi veya doğum birimini arayın. Su geldiyse, şiddetli kanama veya bebek hareketlerinde belirgin azalma varsa beklemeyin.',
+        'Sık ve düzenli kasılma',
+        'Bu bir tanı değildir. 5-1-1 kuralı (yaklaşık 5 dk ara, en az 45-60 sn süre, 1 saat boyunca) durumunda hekiminizi veya doğum servisinizi arayınız. Su geldiyse, kanama veya bebek hareketlerinde azalma varsa beklemeden hekiminize gidiniz.',
       );
     }
   };
@@ -208,6 +221,13 @@ export default function ContractionTimerScreen() {
             );
           })
         )}
+        {/* Medical Disclaimer */}
+        <View style={[styles.disclaimerBox, { backgroundColor: isDark ? '#2D1F32' : '#F9F5FF', borderColor: colors.border }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={Colors.floPink} />
+          <Text style={[styles.disclaimerText, { color: colors.textMuted }]}>
+            Önemli Uyarı: Bu sayaç yalnızca süre kaydı tutmak içindir; tıbbi tanı koymaz veya doğum zamanını kesin olarak belirlemez. Su gelmesi, parlak kırmızı kanama, bebeğin hareketlerinde belirgin azalma veya şiddetli ağrı durumunda süreye bakılmaksızın derhal hekiminize veya en yakın acil servise başvurunuz.
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -245,4 +265,6 @@ const styles = StyleSheet.create({
   rowTime: { fontSize: 15, fontWeight: '700' },
   rowSub: { fontSize: 12, marginTop: 2 },
   statsRight: { flex: 1, alignItems: 'flex-end', gap: 2 },
+  disclaimerBox: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginTop: 24, alignItems: 'flex-start' },
+  disclaimerText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });

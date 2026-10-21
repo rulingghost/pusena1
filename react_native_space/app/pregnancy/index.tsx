@@ -8,26 +8,40 @@ import { Colors } from '@/src/theme/colors';
 import { AppImages } from '@/src/theme/images';
 import { usePregnancyControllerGet, usePregnancyControllerGetWeekContent } from '@/src/api/generated/api';
 import { DatePickerModal } from '@/src/components/DatePickerModal';
+import { MedicalDisclaimer } from '@/src/components/MedicalDisclaimer';
 import { customFetch } from '@/src/api/customFetch';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/src/utils/dateOnly';
+
+import { useAuth } from '@/src/contexts/AuthContext';
+import { isMaleUser } from '@/src/utils/gender';
 
 export default function PregnancyScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const male = isMaleUser(user);
+
   const { data: preg, isLoading, isError, refetch } = usePregnancyControllerGet({
-    query: { retry: false },
+    query: { retry: false, enabled: !male },
   });
   const currentWeek = preg?.currentWeek ?? 1;
-  const { data: weekContent } = usePregnancyControllerGetWeekContent(currentWeek, { query: { enabled: !!preg } });
+  const { data: weekContent } = usePregnancyControllerGetWeekContent(currentWeek, { query: { enabled: !male && !!preg } });
   
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [babyGender, setBabyGender] = useState<'girl' | 'boy' | 'unisex'>('girl');
   const [sizeMode, setSizeMode] = useState<'fruit' | 'object'>('fruit');
+
+  useEffect(() => {
+    if (male) {
+      Alert.alert('Erişim Kısıtlandı', 'Gebelik takibi erkek kullanıcılar için geçerli değildir.');
+      router.replace('/tabs/home');
+    }
+  }, [male, router]);
 
   useEffect(() => {
     AsyncStorage.getItem('baby_gender_theme').then((g) => {
@@ -220,7 +234,7 @@ export default function PregnancyScreen() {
           <Text style={[styles.weekDay, { color: colors.textSecondary }]}>{preg.currentDay}. Gün • {preg.trimester}. Trimester</Text>
 
           <View style={[styles.progressBar, { backgroundColor: isDark ? '#3D2032' : '#E5E7EB' }]}>
-            <View style={[styles.progressFill, { width: `${preg.progressPercent ?? 0}%`, backgroundColor: themeColor }]} />
+            <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, Math.round(Number(preg.progressPercent) || 0)))}%` as any, backgroundColor: themeColor }]} />
           </View>
 
           <View style={styles.dueRow}>
@@ -344,9 +358,7 @@ export default function PregnancyScreen() {
           accentColor={themeColor}
         />
 
-        <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
-          🌸 Bu içerikler bilgilendirme amaçlıdır; doktor tavsiyesi yerine geçmez.
-        </Text>
+        <MedicalDisclaimer variant="pregnancy" style={{ marginTop: 12 }} />
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>

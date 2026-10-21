@@ -5,7 +5,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
+
+const FEATURE_KEY = 'bbt_records';
 
 interface BBTRecord {
   day: number;
@@ -13,41 +16,36 @@ interface BBTRecord {
   date: string;
 }
 
-const DEFAULT_BBT: BBTRecord[] = [
-  { day: 8, temp: 36.2, date: '12 Ağu' },
-  { day: 9, temp: 36.3, date: '13 Ağu' },
-  { day: 10, temp: 36.2, date: '14 Ağu' },
-  { day: 11, temp: 36.3, date: '15 Ağu' },
-  { day: 12, temp: 36.1, date: '16 Ağu' },
-  { day: 13, temp: 36.1, date: '17 Ağu' },
-  { day: 14, temp: 36.7, date: '18 Ağu' }, // Ovulation rise!
-  { day: 15, temp: 36.8, date: '19 Ağu' },
-  { day: 16, temp: 36.8, date: '20 Ağu' },
-  { day: 17, temp: 36.9, date: '21 Ağu' },
-];
-
 export default function BBTChartScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
 
-  const [records, setRecords] = useState<BBTRecord[]>(DEFAULT_BBT);
-  const [newDay, setNewDay] = useState('18');
-  const [newTemp, setNewTemp] = useState('36.8');
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
+
+  const [records, setRecords] = useState<BBTRecord[]>([]);
+  const [newDay, setNewDay] = useState('');
+  const [newTemp, setNewTemp] = useState('');
 
   useEffect(() => {
-    AsyncStorage.getItem('bbt_records').then((data) => {
-      if (data) {
-        try {
-          setRecords(JSON.parse(data));
-        } catch {}
+    let active = true;
+    getWellnessData<BBTRecord[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (active && Array.isArray(saved)) {
+        setRecords(saved);
       }
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const saveRecords = (updated: BBTRecord[]) => {
     setRecords(updated);
-    AsyncStorage.setItem('bbt_records', JSON.stringify(updated));
+    void setWellnessData(FEATURE_KEY, updated, user?.id);
   };
 
   const handleAddTemp = () => {
@@ -110,46 +108,57 @@ export default function BBTChartScreen() {
         {/* Visual Chart Card */}
         <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>Döngü Sıcaklık Eğrisi (°C)</Text>
-          <View style={styles.barsContainer}>
-            {records.map((item) => {
-              const heightPercent = Math.min(100, Math.max(10, ((item.temp - 35.8) / 1.5) * 100));
-              const isHigh = item.temp >= 36.6;
-              const isOv = item.day === ovDay;
-              return (
-                <View key={item.day} style={styles.barCol}>
-                  <Text style={[styles.barTempText, { color: isHigh ? Colors.floPink : colors.textMuted }]}>
-                    {item.temp.toFixed(1)}
-                  </Text>
-                  <View style={styles.barSlot}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${heightPercent}%`,
-                          backgroundColor: isOv ? Colors.floPurple : isHigh ? Colors.floPink : Colors.floTeal,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.barDayText, { color: colors.text }]}>G{item.day}</Text>
+          {records.length === 0 ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <Ionicons name="thermometer-outline" size={32} color={colors.textMuted} />
+              <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center' }}>
+                Henüz sıcaklık kaydı eklenmedi. Aşağıdan bugünkü ölçümü kaydederek grafiğinizi oluşturun.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.barsContainer}>
+                {records.map((item) => {
+                  const heightPercent = Math.min(100, Math.max(10, ((item.temp - 35.8) / 1.5) * 100));
+                  const isHigh = item.temp >= 36.6;
+                  const isOv = item.day === ovDay;
+                  return (
+                    <View key={item.day} style={styles.barCol}>
+                      <Text style={[styles.barTempText, { color: isHigh ? Colors.floPink : colors.textMuted }]}>
+                        {item.temp.toFixed(1)}
+                      </Text>
+                      <View style={styles.barSlot}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            {
+                              height: `${heightPercent}%`,
+                              backgroundColor: isOv ? Colors.floPurple : isHigh ? Colors.floPink : Colors.floTeal,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.barDayText, { color: colors.text }]}>G{item.day}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.chartLegend}>
+                <View style={styles.legItem}>
+                  <View style={[styles.legDot, { backgroundColor: Colors.floTeal }]} />
+                  <Text style={[styles.legText, { color: colors.textMuted }]}>Foliküler (Düşük)</Text>
                 </View>
-              );
-            })}
-          </View>
-          <View style={styles.chartLegend}>
-            <View style={styles.legItem}>
-              <View style={[styles.legDot, { backgroundColor: Colors.floTeal }]} />
-              <Text style={[styles.legText, { color: colors.textMuted }]}>Foliküler (Düşük)</Text>
-            </View>
-            <View style={styles.legItem}>
-              <View style={[styles.legDot, { backgroundColor: Colors.floPink }]} />
-              <Text style={[styles.legText, { color: colors.textMuted }]}>Luteal (Yüksek)</Text>
-            </View>
-            <View style={styles.legItem}>
-              <View style={[styles.legDot, { backgroundColor: Colors.floPurple }]} />
-              <Text style={[styles.legText, { color: colors.textMuted }]}>Ovülasyon Sıçraması</Text>
-            </View>
-          </View>
+                <View style={styles.legItem}>
+                  <View style={[styles.legDot, { backgroundColor: Colors.floPink }]} />
+                  <Text style={[styles.legText, { color: colors.textMuted }]}>Luteal (Yüksek)</Text>
+                </View>
+                <View style={styles.legItem}>
+                  <View style={[styles.legDot, { backgroundColor: Colors.floPurple }]} />
+                  <Text style={[styles.legText, { color: colors.textMuted }]}>Ovülasyon Sıçraması</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Add Entry Card */}

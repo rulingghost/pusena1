@@ -140,17 +140,76 @@ export default function PostDetailScreen() {
     ]);
   };
 
-  const handleReport = () => {
-    Alert.alert('Şikayet', 'Bu gönderiyi şikayet etmek istiyor musunuz?', [
-      { text: 'İptal', style: 'cancel' },
+  const handlePostOptionsMenu = () => {
+    Alert.alert(
+      'Gönderi Seçenekleri',
+      'Bu gönderi veya yazarı hakkında ne yapmak istersiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: '🚩 Gönderiyi Şikayet Et',
+          onPress: promptReportReason,
+        },
+        {
+          text: '🚫 Kullanıcıyı Engelle',
+          style: 'destructive',
+          onPress: confirmBlockUser,
+        },
+      ],
+    );
+  };
+
+  const promptReportReason = () => {
+    Alert.alert(
+      'Şikayet Nedeni',
+      'Lütfen bir neden seçin:',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Taciz veya Zorbalık', onPress: () => sendReport('Taciz veya Zorbalık') },
+        { text: 'Yanıltıcı Tıbbi Bilgi', onPress: () => sendReport('Yanıltıcı Tıbbi Bilgi') },
+        { text: 'Uygunsuz veya Müstehcen', onPress: () => sendReport('Uygunsuz veya Müstehcen') },
+        { text: 'Spam veya Reklam', onPress: () => sendReport('Spam veya Reklam') },
+      ],
+    );
+  };
+
+  const sendReport = (reason: string) => {
+    reportMutation.mutate(
+      { postId: pid, data: { reason } },
       {
-        text: 'Şikayet Et', style: 'destructive', onPress: () => {
-          reportMutation.mutate({ postId: pid, data: { reason: 'Uygunsuz içerik' } }, {
-            onSuccess: () => Alert.alert('Başarılı', 'Şikayet alındı.'),
-          });
+        onSuccess: () => {
+          Alert.alert('Şikayet Alındı', 'Bildiriminiz moderasyon ekibimize iletildi. Teşekkür ederiz.');
+        },
+        onError: () => {
+          Alert.alert('Hata', 'Şikayet iletilemedi.');
         },
       },
-    ]);
+    );
+  };
+
+  const confirmBlockUser = () => {
+    if (!post?.authorId) return;
+    Alert.alert(
+      'Kullanıcıyı Engelle',
+      `${post.authorName || 'Bu kullanıcı'} engellensin mi? Engellediğinizde birbirinizin gönderilerini, yorumlarını ve profilini göremezsiniz.`,
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Engelle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await customFetch(`/api/community/block/${post.authorId}`, { method: 'POST' });
+              queryClient.invalidateQueries({ queryKey: ['/api/community'] });
+              Alert.alert('Engellendi', 'Kullanıcı engellendi. Gönderileri artık akışınızda görünmeyecek.');
+              router.back();
+            } catch {
+              Alert.alert('Hata', 'Kullanıcı engellenemedi.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (isLoading) return <LoadingScreen />;
@@ -199,7 +258,7 @@ export default function PostDetailScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Pressable onPress={handleReport} style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Pressable onPress={handlePostOptionsMenu} style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
               </Pressable>
             )}

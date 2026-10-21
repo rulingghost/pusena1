@@ -9,6 +9,8 @@ export interface UpdatedWeekContentResponseDto {
   babyWeight: string;
   organDevelopment: string;
   motherChanges: string;
+  /** @nullable */
+  letterFromBaby?: string | null;
   commonSymptoms: string[];
   tips: string[];
   warnings: string[];

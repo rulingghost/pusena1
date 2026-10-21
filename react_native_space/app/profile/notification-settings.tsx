@@ -107,11 +107,15 @@ export default function NotificationSettingsScreen() {
         </View>
 
         <Text style={[styles.infoBox, { color: colors.textSecondary, backgroundColor: Colors.primary + '10' }]}>
-          iOS ve Android, üçüncü parti uygulamaların sistem Saat alarmına yazmasına izin vermez. Pusena, aynı saatte yüksek öncelikli bildirim (alarm tarzı) kurar. İzin vermeniz gerekir.
+          ⏰ Yerel Alarmlar (İlaç, vitamin, kalan gün): Cihazın yerel bildirim kuyruğuna kaydedilir; internet olmasa ve uygulama kapalı olsa dahi saati geldiğinde sesli çalar.
+          {'\n\n'}
+          🔔 Bildirim Merkezi (Partner mesajları, ipuçları): Uygulama açıkken anlık banner olarak, kapalıyken uygulamayı açtığınız anda Bildirim Merkezi listenizde sunulur.
+          {'\n\n'}
+          🛡️ Bildirim izni kapalı olsa dahi adet, gebelik, semptom ve tüm diğer modülleri kesintisiz ve eksiksiz kullanabilirsiniz.
         </Text>
 
         <Pressable
-          onPress={() => ensureNotificationPermission().then((ok) => Alert.alert(ok ? 'İzin açık' : 'İzin kapalı', ok ? 'Bildirimler gönderilebilir.' : 'Ayarlar → Pusena → Bildirimler'))}
+          onPress={() => ensureNotificationPermission().then((ok) => Alert.alert(ok ? 'İzin Açık' : 'İzin Kapalı', ok ? 'Yerel ve uygulama içi alarmlar aktif.' : 'Bildirim izni kapalı. Uygulama çalışmaya devam eder; alarmları duymak için Ayarlar → Pusena → Bildirimler yolunu açabilirsiniz.'))}
           style={{ marginBottom: 8 }}
         >
           <Text style={{ color: Colors.floTeal, fontWeight: '700' }}>Bildirim iznini kontrol et</Text>

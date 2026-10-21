@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { dateKey, computeIsPeriodActive } from '../common/dates';
+import { dateKey, computeIsPeriodActive, calculatePregnancyProgress, calculateCycleProgress } from '../common/dates';
 import { filterModulesForGender } from '../common/gender-modules';
+import { getBlockedUserIds } from '../common/blocking';
 import { buildDailyTip } from './daily-tips';
 
 @Injectable()
@@ -9,11 +10,46 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboard(userId: string) {
-    const [settings, user] = await Promise.all([
+    const [settings, user, blockedIds, myFollowing] = await Promise.all([
       this.prisma.userSettings.findUnique({ where: { userId } }),
       this.prisma.user.findUnique({ where: { id: userId }, select: { gender: true } }),
+      getBlockedUserIds(this.prisma, userId),
+      this.prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } }),
     ]);
     const modules = filterModulesForGender(settings?.activeModules ?? [], user?.gender);
+    const followedIds = myFollowing.map((f) => f.followingId);
+
+    const postWhere: any = {
+      authorId: { notIn: blockedIds },
+      OR: [
+        { authorId: userId },
+        {
+          author: {
+            settings: {
+              is: {
+                showCommunityPosts: true,
+                profilePublic: true,
+              },
+            },
+          },
+        },
+        {
+          authorId: { in: followedIds },
+          author: {
+            settings: {
+              is: {
+                showCommunityPosts: true,
+              },
+            },
+          },
+        },
+        {
+          author: {
+            settings: null,
+          },
+        },
+      ],
+    };
 
     let pregnancy = null;
     let period = null;
@@ -37,6 +73,7 @@ export class DashboardService {
         orderBy: { date: 'asc' },
       }),
       this.prisma.communityPost.findMany({
+        where: postWhere,
         take: 2,
         orderBy: { createdAt: 'desc' },
         select: {
@@ -51,70 +88,56 @@ export class DashboardService {
     ]);
 
     if (p) {
-      {
-        const diffMs = Date.now() - p.lastMenstrualPeriod.getTime();
-        const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-        const week = Math.max(1, Math.min(42, Math.floor(totalDays / 7) + 1));
-        const day = Math.max(1, Math.min(7, (totalDays % 7) + 1));
-        const daysRemaining = Math.max(0, Math.ceil((p.dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-        const progressPercent = Math.min(100, Math.round(((280 - daysRemaining) / 280) * 100));
-        const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
+      const prog = calculatePregnancyProgress(p.lastMenstrualPeriod, p.dueDate);
+      const weekContent = await this.prisma.pregnancyWeekContent.findUnique({ where: { weekNumber: Math.min(prog.week, 40) } });
 
-        const weekContent = await this.prisma.pregnancyWeekContent.findUnique({ where: { weekNumber: Math.min(week, 40) } });
+      pregnancy = {
+        currentWeek: prog.week,
+        currentDay: prog.day,
+        daysRemaining: prog.daysRemaining,
+        babySizeComparison: weekContent?.babySize ?? '',
+        progressPercent: prog.progressPercent,
+        trimester: prog.trimester,
+        babyName: p.babyName,
+      };
 
-        pregnancy = {
-          currentWeek: week, currentDay: day, daysRemaining,
-          babySizeComparison: weekContent?.babySize ?? '',
-          progressPercent, trimester,
-          babyName: p.babyName,
-        };
-
-        dailyTip = buildDailyTip({ pregnancyWeek: week });
-      }
+      dailyTip = buildDailyTip({ pregnancyWeek: prog.week });
     }
 
     if (cycle) {
-      {
-        const currentCycleDay = Math.floor((Date.now() - cycle.startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-        const nextPeriod = new Date(cycle.startDate.getTime() + cycle.cycleLength * 24 * 60 * 60 * 1000);
-        const daysUntilNext = Math.max(0, Math.ceil((nextPeriod.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+      const prog = calculateCycleProgress(cycle.startDate, cycle.cycleLength, cycle.periodLength);
 
-        // 7-day strip
-        const calendarDays: any[] = [];
-        const today = new Date();
-        for (let i = -3; i <= 3; i++) {
-          const d = new Date(today);
-          d.setDate(d.getDate() + i);
-          const daysSinceStart = Math.floor((d.getTime() - cycle.startDate.getTime()) / (24 * 60 * 60 * 1000));
-          const cycleDay = ((daysSinceStart % cycle.cycleLength) + cycle.cycleLength) % cycle.cycleLength;
-          const ovDay = cycle.cycleLength - 14;
-          let type = 'normal';
-          if (cycleDay < cycle.periodLength) type = 'period';
-          else if (cycleDay === ovDay) type = 'ovulation';
-          else if (cycleDay >= ovDay - 5 && cycleDay <= ovDay + 1) type = 'fertile';
-          calendarDays.push({ date: dateKey(d), type });
-        }
+      // 7-day strip
+      const calendarDays: any[] = [];
+      const today = new Date();
+      for (let i = -3; i <= 3; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        const dayProg = calculateCycleProgress(cycle.startDate, cycle.cycleLength, cycle.periodLength, d);
+        const cycleDayMod = ((dayProg.currentCycleDay - 1) % cycle.cycleLength);
+        let type = 'normal';
+        if (cycleDayMod < cycle.periodLength) type = 'period';
+        else if (dayProg.currentCycleDay === prog.ovulationDay) type = 'ovulation';
+        else if (dayProg.currentCycleDay >= prog.ovulationDay - 5 && dayProg.currentCycleDay <= prog.ovulationDay + 1) type = 'fertile';
+        calendarDays.push({ date: dateKey(d), type });
+      }
 
-        const ovDay = cycle.cycleLength - 14;
-        const daysUntilOvulation = Math.max(0, ovDay - currentCycleDay + 1);
-
-        period = {
-          daysUntilNextPeriod: daysUntilNext,
-          currentCycleDay,
-          nextPeriodDate: nextPeriod,
-          calendarDays,
-          isPeriodActive: computeIsPeriodActive(cycle),
-          daysUntilOvulation,
+      period = {
+        daysUntilNextPeriod: prog.daysUntilNextPeriod,
+        currentCycleDay: prog.currentCycleDay,
+        nextPeriodDate: prog.nextPeriodDate,
+        calendarDays,
+        isPeriodActive: computeIsPeriodActive(cycle),
+        daysUntilOvulation: prog.daysUntilOvulation,
+        cycleLength: cycle.cycleLength,
+        periodLength: cycle.periodLength,
+      };
+      if (!dailyTip) {
+        dailyTip = buildDailyTip({
+          currentCycleDay: prog.currentCycleDay,
           cycleLength: cycle.cycleLength,
           periodLength: cycle.periodLength,
-        };
-        if (!dailyTip) {
-          dailyTip = buildDailyTip({
-            currentCycleDay,
-            cycleLength: cycle.cycleLength,
-            periodLength: cycle.periodLength,
-          });
-        }
+        });
       }
     }
 

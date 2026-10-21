@@ -3,8 +3,8 @@
  * only to change auth scheme. Never edit anything under src/api/generated/
  * — orval overwrites it on every codegen run.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiBase } from './apiBase';
+import { getSecureItem, setSecureItem, removeSecureItem } from '../utils/secureStorage';
 
 const TOKEN_KEY = process.env.EXPO_PUBLIC_AUTH_TOKEN_KEY ?? 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
@@ -63,7 +63,7 @@ export async function tryRefreshTokens(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
-    const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY).catch(() => null);
+    const refreshToken = await getSecureItem(REFRESH_TOKEN_KEY).catch(() => null);
     if (!refreshToken) return false;
 
     try {
@@ -75,8 +75,8 @@ export async function tryRefreshTokens(): Promise<boolean> {
       if (!response.ok) return false;
 
       const data = (await response.json()) as { token: string; refreshToken: string };
-      await AsyncStorage.setItem(TOKEN_KEY, data.token);
-      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+      await setSecureItem(TOKEN_KEY, data.token);
+      await setSecureItem(REFRESH_TOKEN_KEY, data.refreshToken);
       return true;
     } catch {
       return false;
@@ -89,8 +89,8 @@ export async function tryRefreshTokens(): Promise<boolean> {
 }
 
 export async function clearAuthTokens(): Promise<void> {
-  await AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
-  await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => {});
+  await removeSecureItem(TOKEN_KEY).catch(() => {});
+  await removeSecureItem(REFRESH_TOKEN_KEY).catch(() => {});
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -141,7 +141,7 @@ export async function customFetch<T>(
     ? url
     : `${getApiBase()}${url.startsWith('/') ? url : '/' + url}`;
 
-  let token = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
+  let token = await getSecureItem(TOKEN_KEY).catch(() => null);
 
   try {
     return await executeFetch<T>(fullUrl, options, token);
@@ -156,7 +156,7 @@ export async function customFetch<T>(
       throw e;
     }
 
-    token = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
+    token = await getSecureItem(TOKEN_KEY).catch(() => null);
     return executeFetch<T>(fullUrl, options, token);
   }
 }

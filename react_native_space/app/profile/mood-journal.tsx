@@ -5,9 +5,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = 'user_mood_journal';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
+
+const FEATURE_KEY = 'mood_journal';
 
 interface MoodLog {
   id: string;
@@ -30,6 +32,7 @@ const MOODS = [
 export default function MoodJournalScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
 
   const [selectedMood, setSelectedMood] = useState(MOODS[0]);
@@ -40,21 +43,22 @@ export default function MoodJournalScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
-      if (data) {
-        try {
-          const parsed = JSON.parse(data);
-          if (Array.isArray(parsed)) setLogs(parsed);
-        } catch { /* ignore */ }
-      }
+    let active = true;
+    setLoaded(false);
+    getWellnessData<MoodLog[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (!active) return;
+      setLogs(Array.isArray(saved) ? saved : []);
       setLoaded(true);
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-  }, [logs, loaded]);
+    setWellnessData(FEATURE_KEY, logs, user?.id);
+  }, [logs, loaded, user?.id]);
 
   const resetForm = () => {
     setGratitude('');

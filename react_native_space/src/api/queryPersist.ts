@@ -1,9 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { QueryClient } from '@tanstack/react-query';
 
-const STORAGE_KEY = 'pusena_query_cache_v1';
+const BASE_STORAGE_KEY = 'pusena_query_cache_v2';
+const LEGACY_STORAGE_KEY = 'pusena_query_cache_v1';
 /** Açılışta parse edilecek JSON'u sınırlı tut; büyük cache ilk kareyi geciktiriyor. */
 const MAX_CACHE_BYTES = 400 * 1024;
+
+let currentCacheUserId: string | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSerialized = '';
+
+export function setCurrentCacheUserId(userId: string | null) {
+  currentCacheUserId = userId;
+  lastSerialized = '';
+}
+
+export function getCurrentCacheUserId(): string | null {
+  return currentCacheUserId;
+}
+
+export function clearPersistSaveTimer() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+}
+
+function getStorageKey(userId?: string | null): string {
+  const id = userId || currentCacheUserId;
+  return id ? `${BASE_STORAGE_KEY}_${id}` : `${BASE_STORAGE_KEY}_anonymous`;
+}
 
 const PERSIST_MATCHERS = [
   '/api/dashboard',
@@ -34,38 +60,44 @@ function snapshot(qc: QueryClient): Record<string, unknown> {
   return out;
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let lastSerialized = '';
-
 function scheduleSave(qc: QueryClient) {
-  if (saveTimer) clearTimeout(saveTimer);
-  // Her cache dokunuşunda tüm snapshot'ı stringify etmek pahalıydı; seyrek yaz.
+  clearPersistSaveTimer();
+  // Kullanıcı oturumu kapalıysa veya çıkış yapılıyorsa diske yazma
+  if (!currentCacheUserId) return;
+
   saveTimer = setTimeout(() => {
     try {
+      if (!currentCacheUserId) return;
+      const targetKey = getStorageKey(currentCacheUserId);
       const serialized = JSON.stringify(snapshot(qc));
       if (serialized === lastSerialized) return;
       if (serialized.length > MAX_CACHE_BYTES) return;
       lastSerialized = serialized;
-      AsyncStorage.setItem(STORAGE_KEY, serialized).catch(() => {});
+      AsyncStorage.setItem(targetKey, serialized).catch(() => {});
     } catch {
       /* serileştirilemeyen veri varsa atla */
     }
   }, 2500);
 }
 
-export async function hydrateQueryCache(qc: QueryClient): Promise<void> {
+export async function hydrateQueryCache(qc: QueryClient, userId?: string | null): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const targetUserId = userId !== undefined ? userId : currentCacheUserId;
+    if (targetUserId) {
+      setCurrentCacheUserId(targetUserId);
+    }
+    const key = getStorageKey(targetUserId);
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return;
     if (raw.length > MAX_CACHE_BYTES) {
-      await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+      await AsyncStorage.removeItem(key).catch(() => {});
       return;
     }
     lastSerialized = raw;
     const data = JSON.parse(raw) as Record<string, unknown>;
-    for (const [key, value] of Object.entries(data)) {
+    for (const [k, value] of Object.entries(data)) {
       try {
-        qc.setQueryData(JSON.parse(key), value);
+        qc.setQueryData(JSON.parse(k), value);
       } catch {
         /* skip bad key */
       }
@@ -81,7 +113,14 @@ export function watchQueryCache(qc: QueryClient) {
   });
 }
 
-export async function clearQueryCache() {
+export async function clearQueryCache(userId?: string | null) {
+  clearPersistSaveTimer();
   lastSerialized = '';
-  await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+  const targetKey = getStorageKey(userId);
+  await Promise.all([
+    AsyncStorage.removeItem(targetKey).catch(() => {}),
+    AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(() => {}),
+    AsyncStorage.removeItem(`${BASE_STORAGE_KEY}_anonymous`).catch(() => {}),
+  ]);
+  currentCacheUserId = null;
 }

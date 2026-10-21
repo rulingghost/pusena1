@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto, SaveAssessmentDto, UpsertMemoryDto } from './dto/users.dto';
 import { getPairUserIds } from '../common/pair';
 import { MediaService } from '../media/media.service';
+import { calculatePregnancyProgress } from '../common/dates';
 
 const MAX_MEMORY_IMAGES = 2;
 
@@ -318,19 +319,15 @@ export class UsersService {
 
     let pregnancySummary: any = null;
     if (pregnancy?.isActive) {
-      const lmp = new Date(pregnancy.lastMenstrualPeriod);
-      const due = new Date(pregnancy.dueDate);
-      const days = Math.floor((now.getTime() - lmp.getTime()) / (24 * 60 * 60 * 1000));
-      const week = Math.min(42, Math.max(1, Math.floor(days / 7) + 1));
-      const day = days % 7;
+      const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate, now);
       pregnancySummary = {
         isActive: true,
         babyName: pregnancy.babyName,
-        lastMenstrualPeriod: lmp.toISOString().slice(0, 10),
-        dueDate: due.toISOString().slice(0, 10),
-        currentWeek: week,
-        currentDay: day,
-        daysRemaining: Math.max(0, Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))),
+        lastMenstrualPeriod: pregnancy.lastMenstrualPeriod.toISOString().slice(0, 10),
+        dueDate: pregnancy.dueDate.toISOString().slice(0, 10),
+        currentWeek: prog.week,
+        currentDay: prog.day,
+        daysRemaining: prog.daysRemaining,
       };
     }
 

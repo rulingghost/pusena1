@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { foldTr } from '../common/text';
+import { calculatePregnancyProgress, calculateCycleProgress } from '../common/dates';
+import { ReportAssistantResponseDto } from './dto/assistant.dto';
+import * as fs from 'fs';
+import { join } from 'path';
 
 export interface AssistantDialogueMessage {
   id: string;
@@ -29,10 +33,9 @@ export class AssistantService {
     });
 
     if (pregnancy && pregnancy.isActive) {
-      const now = new Date();
-      const diffMs = now.getTime() - new Date(pregnancy.lastMenstrualPeriod).getTime();
-      const currentWeek = Math.max(1, Math.min(40, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1));
-      const remainingDays = Math.max(0, Math.ceil((new Date(pregnancy.dueDate).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+      const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate);
+      const currentWeek = prog.week;
+      const remainingDays = prog.daysRemaining;
 
       return {
         mode: 'pregnancy',
@@ -60,11 +63,10 @@ export class AssistantService {
       orderBy: { startDate: 'desc' },
     });
 
-    const now = new Date();
     let cycleDay = 8;
     if (latestCycle) {
-      const diffDays = Math.floor((now.getTime() - new Date(latestCycle.startDate).getTime()) / (24 * 60 * 60 * 1000)) + 1;
-      cycleDay = Math.max(1, diffDays);
+      const cycleProg = calculateCycleProgress(latestCycle.startDate, latestCycle.cycleLength, latestCycle.periodLength);
+      cycleDay = cycleProg.currentCycleDay;
     }
 
     let phase = 'Foliküler Evre';
@@ -184,8 +186,7 @@ ${context.summary}`;
       });
 
       if (!res.ok) {
-        const errBody = await res.text();
-        this.logger.error(`Groq HTTP ${res.status}: ${errBody.slice(0, 400)}`);
+        this.logger.error(`Groq servisi HTTP ${res.status} durum kodu ile başarısız oldu.`);
         return null;
       }
 
@@ -204,8 +205,8 @@ ${context.summary}`;
         options: parsed.options,
         timestamp: 'Şimdi',
       };
-    } catch (err) {
-      this.logger.error('Groq isteği başarısız', err instanceof Error ? err.stack : String(err));
+    } catch {
+      this.logger.error('Groq servisine erişim sırasında bir bağlantı hatası oluştu.');
       return null;
     }
   }
@@ -269,27 +270,21 @@ ${context.summary}`;
     ]);
 
     const lines: string[] = [];
-    if (user?.name) lines.push(`Name: ${user.name}`);
-    if (user?.gender) lines.push(`Gender: ${user.gender}`);
-    if (user?.birthYear) lines.push(`Birth year: ${user.birthYear}`);
-    if (user?.heightCm && user?.weightKg) lines.push(`Height/weight: ${user.heightCm} cm / ${user.weightKg} kg`);
+    lines.push('User profile: Anonymous adult woman');
+    if (user?.heightCm && user?.weightKg) {
+      const bmi = (user.weightKg / Math.pow(user.heightCm / 100, 2)).toFixed(1);
+      lines.push(`Body Mass Index: approx ${bmi}`);
+    }
 
     if (pregnancy?.isActive) {
-      const week = Math.max(
-        1,
-        Math.min(
-          40,
-          Math.floor((Date.now() - new Date(pregnancy.lastMenstrualPeriod).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
-        ),
-      );
-      lines.push(`Active pregnancy: week ${week}, due ${pregnancy.dueDate.toISOString().slice(0, 10)}${pregnancy.babyName ? `, baby name ${pregnancy.babyName}` : ''}`);
+      const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate);
+      lines.push(`Active pregnancy: week ${prog.week}, approximately ${prog.daysRemaining} days remaining until estimated due date.`);
     }
 
     if (latestCycle) {
-      const cycleDay =
-        Math.floor((Date.now() - new Date(latestCycle.startDate).getTime()) / (24 * 60 * 60 * 1000)) + 1;
+      const cycleProg = calculateCycleProgress(latestCycle.startDate, latestCycle.cycleLength, latestCycle.periodLength);
       lines.push(
-        `Latest cycle started ${latestCycle.startDate.toISOString().slice(0, 10)}, cycle day ${cycleDay}, typical length ${latestCycle.cycleLength} days, period length ${latestCycle.periodLength} days.`,
+        `Latest cycle: cycle day ${cycleProg.currentCycleDay}, typical cycle length ${latestCycle.cycleLength} days, period length ${latestCycle.periodLength} days.`,
       );
     } else {
       lines.push('No period cycle logged yet.');
@@ -297,14 +292,14 @@ ${context.summary}`;
 
     if (recentSymptoms.length) {
       const list = recentSymptoms
-        .map((s) => `${s.type} (severity ${s.severity}/5, ${s.date.toISOString().slice(0, 10)})`)
+        .map((s) => `${s.type} (severity ${s.severity}/5)`)
         .join('; ');
-      lines.push(`Recent symptoms (14 days): ${list}`);
+      lines.push(`Recent logged symptoms: ${list}`);
     }
 
     if (assessment) {
       lines.push(
-        `Fertility assessment: goal=${assessment.goal ?? '-'}, trying=${assessment.tryingDuration ?? '-'}, regularity=${assessment.cycleRegularity ?? '-'}, conditions=${(assessment.healthConditions || []).join(',') || 'none'}, score=${assessment.score ?? '-'}.`,
+        `Fertility assessment context: regularity=${assessment.cycleRegularity ?? '-'}, conditions=${(assessment.healthConditions || []).join(',') || 'none'}.`,
       );
     }
 
@@ -345,5 +340,79 @@ ${context.summary}`;
       options: followUps,
       timestamp: 'Şimdi',
     };
+  }
+
+  // AI Moderation & Flagging
+  async reportAssistantResponse(userId: string, dto: ReportAssistantResponseDto) {
+    if (!dto.responseText || !dto.reason) {
+      throw new BadRequestException('Yanıt metni ve şikayet nedeni zorunludur.');
+    }
+
+    const reportItem = {
+      id: `ai-rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      userId,
+      messageId: dto.messageId || null,
+      question: dto.question?.slice(0, 1000) || null,
+      responseText: dto.responseText.slice(0, 2000),
+      reason: dto.reason.slice(0, 500),
+      createdAt: new Date().toISOString(),
+    };
+
+    const current = await this.getReportedAiResponses();
+    const updated = [reportItem, ...current.slice(0, 199)]; // Keep latest 200 reports
+    await this.persistReportedAiResponses(updated);
+
+    return { success: true, message: 'Şikayetiniz incelenmek üzere moderasyon kuyruğuna iletildi.' };
+  }
+
+  async getReportedAiResponses(): Promise<any[]> {
+    try {
+      const secret = await this.prisma.appSecret.findUnique({ where: { key: 'REPORTED_AI_RESPONSES' } });
+      if (secret?.value) {
+        const parsed = JSON.parse(secret.value);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return this.readReportedAiFromFile();
+  }
+
+  async dismissReportedAiResponse(reportId: string) {
+    const current = await this.getReportedAiResponses();
+    const updated = current.filter((r) => r.id !== reportId);
+    await this.persistReportedAiResponses(updated);
+    return { success: true };
+  }
+
+  private async persistReportedAiResponses(reports: any[]) {
+    const json = JSON.stringify(reports);
+    try {
+      await this.prisma.appSecret.upsert({
+        where: { key: 'REPORTED_AI_RESPONSES' },
+        update: { value: json },
+        create: { key: 'REPORTED_AI_RESPONSES', value: json },
+      });
+    } catch (err) {
+      this.logger.warn(`Could not save reported AI responses to AppSecret: ${(err as any)?.message}`);
+    }
+
+    try {
+      const dir = join(process.cwd(), 'storage');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(join(dir, 'reported_ai_responses.json'), json, 'utf8');
+    } catch (err) {
+      this.logger.warn(`Could not save reported AI responses to file: ${(err as any)?.message}`);
+    }
+  }
+
+  private readReportedAiFromFile(): any[] {
+    try {
+      const filePath = join(process.cwd(), 'storage', 'reported_ai_responses.json');
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
   }
 }

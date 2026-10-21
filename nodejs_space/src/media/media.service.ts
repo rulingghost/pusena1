@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_BYTES = 2.5 * 1024 * 1024;
@@ -44,10 +44,50 @@ export class MediaService {
     return saved.filter((url): url is string => !!url);
   }
 
-  async getObject(id: string) {
+  async assertCanAccess(id: string, requesterUserId?: string | null) {
     const row = await this.prisma.mediaObject.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Dosya bulunamadı');
-    return row;
+
+    // Avatarlar ve topluluk görselleri herkese açıktır.
+    if (row.kind === 'avatar' || row.kind === 'community') {
+      return row;
+    }
+
+    // Özel içerikler (anı fotoğrafları vb.) için oturum açılmış olmalıdır.
+    if (!requesterUserId) {
+      throw new UnauthorizedException('Bu medyayı görüntülemek için giriş yapmalısınız');
+    }
+
+    // İstek sahibi medyanın sahibiyse izin verilir.
+    if (row.userId === requesterUserId) {
+      return row;
+    }
+
+    // İstek sahibi admin ise izin verilir.
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterUserId },
+      select: { pairedUserId: true, isAdmin: true },
+    });
+    if (requester?.isAdmin) {
+      return row;
+    }
+
+    // Karşılıklı partner eşleşmesi kontrolü
+    if (requester?.pairedUserId === row.userId) {
+      const owner = await this.prisma.user.findUnique({
+        where: { id: row.userId },
+        select: { pairedUserId: true },
+      });
+      if (owner?.pairedUserId === requesterUserId) {
+        return row;
+      }
+    }
+
+    throw new ForbiddenException('Bu medyaya erişim yetkiniz yok');
+  }
+
+  async getObject(id: string, requesterUserId?: string | null) {
+    return this.assertCanAccess(id, requesterUserId);
   }
 }
 

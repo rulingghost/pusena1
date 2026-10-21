@@ -20,6 +20,9 @@ import { useSymptomsControllerGetTypes, useSymptomsControllerCreate } from '@/sr
 import { getSymptomInsights } from '@/src/utils/symptomInsights';
 import { localDateKey } from '@/src/utils/dateOnly';
 
+import { useAuth } from '@/src/contexts/AuthContext';
+import { isMaleUser } from '@/src/utils/gender';
+
 interface SymptomChipMeta {
   icon: string;
   bgColor?: string;
@@ -31,9 +34,20 @@ export default function SymptomsScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const male = isMaleUser(user);
 
-  const { data: typesData, isLoading } = useSymptomsControllerGetTypes();
+  const { data: typesData, isLoading } = useSymptomsControllerGetTypes({
+    query: { enabled: !male },
+  });
   const createMutation = useSymptomsControllerCreate();
+
+  useEffect(() => {
+    if (male) {
+      Alert.alert('Erişim Kısıtlandı', 'Belirti kaydı erkek kullanıcılar için geçerli değildir.');
+      router.replace('/tabs/home');
+    }
+  }, [male, router]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');

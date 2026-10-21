@@ -1,14 +1,18 @@
-﻿import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateWeekContentDto, SendNotificationDto, UpdateAdminUserDto, AdminUpdateArticleDto, AdminUpdateFaqDto, AdminUpdateMythDto } from './dto/admin.dto';
 import { ADMIN_PORTAL_HTML } from './admin-portal.template';
 import { ArticlesService } from '../articles/articles.service';
+import { AuthService } from '../auth/auth.service';
+import * as fs from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly articlesService: ArticlesService,
+    private readonly authService: AuthService,
   ) {}
 
   async assertAdmin(userId: string) {
@@ -194,17 +198,62 @@ export class AdminService {
     const u = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!u) throw new NotFoundException('Kullanıcı bulunamadı');
 
-    await this.prisma.deletedAccount.create({
-      data: {
-        email: u.email,
-        name: u.name,
-        reason: 'Admin tarafından silindi',
-        note: adminId ? `Silen admin: ${adminId}` : null,
-      },
-    });
+    this.authService.revokeUserTokens(userId);
 
-    await this.prisma.user.delete({ where: { id: userId } });
-    return { success: true };
+    return await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.deleteMany({ where: { userId } }).catch(() => {});
+
+      await tx.deletedAccount.create({
+        data: {
+          email: u.email,
+          name: u.name,
+          reason: 'Admin tarafından silindi',
+          note: adminId ? `Silen admin: ${adminId}` : null,
+        },
+      });
+
+      // Unlink partner and shut down location sharing
+      const partnerId = u.pairedUserId;
+      if (partnerId) {
+        await tx.user.updateMany({
+          where: { id: partnerId },
+          data: { pairedUserId: null },
+        });
+        await tx.partnerLocation.updateMany({
+          where: { userId: partnerId },
+          data: { sharingEnabled: false, latitude: 0, longitude: 0, accuracy: null },
+        });
+        await tx.notification.create({
+          data: {
+            userId: partnerId,
+            type: 'partner_unpaired',
+            module: 'relationship',
+            title: 'Partner bağlantısı sonlandı',
+            body: `${u.nickname || u.name} hesabı kapatıldığı için partner eşleşmesi ve konum paylaşımı kaldırıldı.`,
+          },
+        }).catch(() => {});
+      }
+
+      const reversePartners = await tx.user.findMany({
+        where: { pairedUserId: userId },
+        select: { id: true },
+      });
+      if (reversePartners.length > 0) {
+        const rIds = reversePartners.map((r) => r.id);
+        await tx.user.updateMany({
+          where: { id: { in: rIds } },
+          data: { pairedUserId: null },
+        });
+        await tx.partnerLocation.updateMany({
+          where: { userId: { in: rIds } },
+          data: { sharingEnabled: false, latitude: 0, longitude: 0, accuracy: null },
+        });
+      }
+
+      await tx.partnerLocation.deleteMany({ where: { userId } }).catch(() => {});
+      await tx.user.delete({ where: { id: userId } });
+      return { success: true };
+    });
   }
 
   async getStats() {
@@ -544,6 +593,111 @@ export class AdminService {
 
   async updateMythContent(id: string, data: AdminUpdateMythDto) {
     return this.articlesService.adminUpdateMyth(id, data);
+  }
+
+  // Moderation Methods
+  async getReportedPosts(page = 1, limit = 20) {
+    const safeLimit = Math.max(1, Math.min(100, limit));
+    const safePage = Math.max(1, page);
+
+    const reportsGroup = await this.prisma.report.groupBy({
+      by: ['postId'],
+      _count: { postId: true },
+      orderBy: { _count: { postId: 'desc' } },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
+    });
+
+    const postIds = reportsGroup.map((r) => r.postId);
+    const allGroups = await this.prisma.report.groupBy({
+      by: ['postId'],
+    });
+    const total = allGroups.length;
+
+    const posts = await this.prisma.communityPost.findMany({
+      where: { id: { in: postIds } },
+      include: {
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        reports: {
+          select: {
+            id: true,
+            reason: true,
+            createdAt: true,
+            reporter: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    const items = reportsGroup.map((rg) => {
+      const p = posts.find((item) => item.id === rg.postId);
+      return {
+        postId: rg.postId,
+        reportCount: rg._count.postId,
+        post: p
+          ? {
+              id: p.id,
+              content: p.content,
+              category: p.category,
+              createdAt: p.createdAt,
+              author: p.author,
+            }
+          : null,
+        reports: p?.reports ?? [],
+      };
+    });
+
+    return { items, total, page: safePage, totalPages: Math.ceil(total / safeLimit) };
+  }
+
+  async deleteReportedPost(postId: string) {
+    const post = await this.prisma.communityPost.findUnique({ where: { id: postId } });
+    if (!post) throw new NotFoundException('Gönderi bulunamadı');
+
+    await this.prisma.$transaction([
+      this.prisma.report.deleteMany({ where: { postId } }),
+      this.prisma.comment.deleteMany({ where: { postId } }),
+      this.prisma.postLike.deleteMany({ where: { postId } }),
+      this.prisma.savedPost.deleteMany({ where: { postId } }),
+      this.prisma.communityPost.delete({ where: { id: postId } }),
+    ]);
+
+    return { success: true };
+  }
+
+  async dismissPostReports(postId: string) {
+    await this.prisma.report.deleteMany({ where: { postId } });
+    return { success: true };
+  }
+
+  async getReportedAiResponses() {
+    try {
+      const secret = await this.prisma.appSecret.findUnique({ where: { key: 'REPORTED_AI_RESPONSES' } });
+      if (secret?.value) {
+        const parsed = JSON.parse(secret.value);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    try {
+      const filePath = join(process.cwd(), 'storage', 'reported_ai_responses.json');
+      if (fs.existsSync(filePath)) {
+        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  async dismissAiResponseReport(reportId: string) {
+    const current = await this.getReportedAiResponses();
+    const updated = current.filter((r: any) => r.id !== reportId);
+    const json = JSON.stringify(updated);
+    await this.prisma.appSecret.upsert({
+      where: { key: 'REPORTED_AI_RESPONSES' },
+      update: { value: json },
+      create: { key: 'REPORTED_AI_RESPONSES', value: json },
+    }).catch(() => {});
+    return { success: true };
   }
 
   getAdminPortalHtml(): string {

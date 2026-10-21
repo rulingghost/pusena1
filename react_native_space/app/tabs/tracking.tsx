@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { useSettingsControllerGetSettings } from '@/src/api/generated/api';
+import { MedicalDisclaimer } from '@/src/components/MedicalDisclaimer';
 
 export default function TrackingScreen() {
   const insets = useSafeAreaInsets();
@@ -57,6 +58,7 @@ export default function TrackingScreen() {
           </Pressable>
         ))}
 
+        <MedicalDisclaimer variant="general" style={{ marginTop: 8 }} />
         <View style={{ height: 24 }} />
       </ScrollView>
     </View>

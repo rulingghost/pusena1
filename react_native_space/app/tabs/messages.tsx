@@ -8,6 +8,8 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +17,10 @@ import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { apiClient } from '@/src/api/client';
+import { customFetch } from '@/src/api/customFetch';
 import { useRouter } from 'expo-router';
 import { BrandLogo } from '@/src/components/BrandLogo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ChatMessage {
   id: string;
@@ -25,6 +29,8 @@ interface ChatMessage {
   options?: string[];
   timestamp: string;
 }
+
+const AI_CONSENT_KEY = 'pusena_ai_consent_accepted';
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -39,6 +45,50 @@ export default function MessagesScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // AI Consent state
+  const [hasConsent, setHasConsent] = useState<boolean | null>(null);
+
+  // AI Report state
+  const [reportingMsg, setReportingMsg] = useState<ChatMessage | null>(null);
+  const [reportReason, setReportReason] = useState<string>('Hatalı veya Yanıltıcı Tıbbi Bilgi');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(AI_CONSENT_KEY).then(val => {
+      setHasConsent(val === 'true');
+    }).catch(() => setHasConsent(false));
+  }, []);
+
+  const handleAcceptConsent = async () => {
+    try {
+      await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+      setHasConsent(true);
+    } catch {
+      setHasConsent(true);
+    }
+  };
+
+  const submitReport = async () => {
+    if (!reportingMsg) return;
+    setIsSubmittingReport(true);
+    try {
+      await customFetch('/api/assistant/report', {
+        method: 'POST',
+        body: JSON.stringify({
+          messageId: reportingMsg.id,
+          responseText: reportingMsg.text,
+          reason: reportReason,
+        }),
+      });
+      setReportingMsg(null);
+      Alert.alert('Geri Bildirim Alındı', 'Bu yanıt moderasyon incelemesine iletildi. Teşekkür ederiz.');
+    } catch {
+      Alert.alert('Hata', 'Şikayet iletilemedi. Lütfen internet bağlantınızı kontrol edin.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   const fetchDailyInsight = async () => {
     try {
@@ -76,6 +126,15 @@ export default function MessagesScreen() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isSending) return;
+
+    if (hasConsent === false) {
+      Alert.alert(
+        'Açık Rıza Gerekli',
+        'Yapay zekâ asistanı ile soru-cevap yapabilmek için lütfen yukarıdaki bilgilendirme kutusundaki "Anladım ve Kabul Ediyorum" onayını verin.',
+      );
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -211,6 +270,37 @@ export default function MessagesScreen() {
           </View>
         )}
 
+        {/* AI Consent Card */}
+        {hasConsent === false && (
+          <View
+            style={[
+              styles.consentCard,
+              {
+                backgroundColor: isDark ? colors.card : '#FFF8F9',
+                borderColor: Colors.floPink + '40',
+              },
+            ]}
+          >
+            <View style={styles.consentHeader}>
+              <View style={[styles.consentIconCircle, { backgroundColor: Colors.floPinkLight }]}>
+                <Ionicons name="sparkles" size={18} color={Colors.floPink} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.consentTitle, { color: colors.text }]}>Yapay Zekâ Asistanı Açık Rıza</Text>
+                <Text style={[styles.consentSub, { color: colors.textMuted }]}>Groq AI ile Güvenli Veri İşleme</Text>
+              </View>
+            </View>
+            <Text style={[styles.consentBody, { color: colors.textSecondary }]}>
+              Pusena Sağlık Asistanı genel bilgilendirme amacıyla Groq AI altyapısını kullanır.{'\n\n'}
+              🔒 <Text style={{ fontWeight: '700' }}>Kimlik Verisi Paylaşılmaz:</Text> Adınız, e-postanız gibi kişisel kimlik bilgileriniz asla AI servisine aktarılmaz.{'\n\n'}
+              🩺 <Text style={{ fontWeight: '700' }}>Tıbbi Sorumluluk Reddi:</Text> Yanıtlar bilgilendirme amaçlıdır; tıbbi tanı veya klinik tavsiye yerine geçmez.
+            </Text>
+            <Pressable style={[styles.consentBtn, { backgroundColor: Colors.floPink }]} onPress={handleAcceptConsent}>
+              <Text style={styles.consentBtnText}>Anladım ve Kabul Ediyorum ✨</Text>
+            </Pressable>
+          </View>
+        )}
+
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={Colors.floPink} />
@@ -289,6 +379,18 @@ export default function MessagesScreen() {
                       ))}
                     </View>
                   )}
+
+                  {/* Flag / Report AI response */}
+                  {isAsst && (
+                    <Pressable
+                      onPress={() => setReportingMsg(msg)}
+                      style={styles.flagBtn}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="flag-outline" size={11} color={colors.textMuted} />
+                      <Text style={[styles.flagBtnText, { color: colors.textMuted }]}>Yanıtı Bildir</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             );
@@ -356,6 +458,79 @@ export default function MessagesScreen() {
           <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
         </Pressable>
       </View>
+
+      {/* AI Report Modal */}
+      <Modal
+        visible={!!reportingMsg}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReportingMsg(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconBox, { backgroundColor: Colors.floPinkLight }]}>
+                <Ionicons name="flag" size={18} color={Colors.floPink} />
+              </View>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Yapay Zekâ Yanıtını Bildir</Text>
+            </View>
+            <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
+              Bu yanıt neden uygunsuz veya yanıltıcı? Lütfen gerekçeyi seçin:
+            </Text>
+            {[
+              'Hatalı veya Yanıltıcı Tıbbi Bilgi',
+              'Güvensiz Sağlık Önerisi',
+              'Uygunsuz Dil veya İfade',
+              'Alakasız / Anlamsız Yanıt',
+            ].map((r) => (
+              <Pressable
+                key={r}
+                style={[
+                  styles.reasonOption,
+                  {
+                    backgroundColor: reportReason === r ? Colors.floPink + '15' : isDark ? colors.background : '#F9FAFB',
+                    borderColor: reportReason === r ? Colors.floPink : colors.border,
+                  },
+                ]}
+                onPress={() => setReportReason(r)}
+              >
+                <Ionicons
+                  name={reportReason === r ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={reportReason === r ? Colors.floPink : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.reasonText,
+                    { color: colors.text, fontWeight: reportReason === r ? '700' : '500' },
+                  ]}
+                >
+                  {r}
+                </Text>
+              </Pressable>
+            ))}
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+                onPress={() => setReportingMsg(null)}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.textMuted }]}>İptal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitBtn, { backgroundColor: Colors.floPink }]}
+                onPress={submitReport}
+                disabled={isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Bildir</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -426,5 +601,133 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  flagBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  flagBtnText: {
+    fontSize: 11,
+  },
+  consentCard: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  consentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  consentIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  consentTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  consentSub: {
+    fontSize: 11.5,
+  },
+  consentBody: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  consentBtn: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  consentBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  modalIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalDesc: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  reasonText: {
+    fontSize: 13,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  modalSubmitBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  modalSubmitText: {
+    color: '#FFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });

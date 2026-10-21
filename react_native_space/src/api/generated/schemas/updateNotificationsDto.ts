@@ -8,4 +8,7 @@ export interface UpdateNotificationsDto {
   specialDateReminder?: boolean;
   communityLikes?: boolean;
   communityComments?: boolean;
+  medicationReminder?: boolean;
+  countdownReminder?: boolean;
+  reminderOffsets?: number[];
 }

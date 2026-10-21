@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
+
+const FEATURE_KEY = 'kick_history';
 
 interface KickSession {
   id: string;
@@ -17,37 +20,47 @@ interface KickSession {
 export default function KickCounterScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
 
   const [kickCount, setKickCount] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [history, setHistory] = useState<KickSession[]>([]);
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    AsyncStorage.getItem('kick_history').then((data) => {
-      if (data) {
-        try {
-          setHistory(JSON.parse(data));
-        } catch {}
+    let active = true;
+    getWellnessData<KickSession[]>(FEATURE_KEY, user?.id).then((saved) => {
+      if (active && Array.isArray(saved)) {
+        setHistory(saved);
       }
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     let interval: any = null;
-    if (isActive) {
+    if (isActive && startTimeRef.current > 0) {
       interval = setInterval(() => {
-        setSeconds((s) => s + 1);
+        setSeconds(Math.max(0, Math.floor((Date.now() - startTimeRef.current) / 1000)));
       }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval);
     }
-    return () => clearInterval(interval);
-  }, [isActive, seconds]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive]);
 
   const handleAddKick = () => {
     if (!isActive) {
+      startTimeRef.current = Date.now();
       setIsActive(true);
     }
     const newCount = kickCount + 1;
@@ -55,7 +68,12 @@ export default function KickCounterScreen() {
 
     if (newCount >= 10) {
       setIsActive(false);
-      const minutes = Math.max(1, Math.round(seconds / 60));
+      const elapsedSec = Math.max(1, Math.floor((Date.now() - (startTimeRef.current || Date.now())) / 1000));
+      const minutes = Math.max(1, Math.round(elapsedSec / 60));
+      startTimeRef.current = 0;
+      setSeconds(0);
+      setKickCount(0);
+
       const session: KickSession = {
         id: Date.now().toString(),
         date: new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
@@ -64,19 +82,35 @@ export default function KickCounterScreen() {
       };
       const updated = [session, ...history];
       setHistory(updated);
-      AsyncStorage.setItem('kick_history', JSON.stringify(updated));
+      void setWellnessData(FEATURE_KEY, updated, user?.id);
 
       Alert.alert(
-        'Tebrikler! 🎉',
-        `Bebeğiniz 10 hareketi ${minutes} dakikada tamamladı. Hareketleri harika görünüyor!`
+        'Seans Tamamlandı',
+        `Bebeğinizin 10 hareketi ${minutes} dakikada kaydedildi.`
       );
     }
   };
 
   const handleReset = () => {
+    startTimeRef.current = 0;
     setIsActive(false);
     setKickCount(0);
     setSeconds(0);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    Alert.alert('Seansı Sil', 'Bu seans kaydını silmek istiyor musunuz?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: () => {
+          const updated = history.filter((h) => h.id !== id);
+          setHistory(updated);
+          void setWellnessData(FEATURE_KEY, updated, user?.id);
+        },
+      },
+    ]);
   };
 
   const formatTime = (secs: number) => {
@@ -94,7 +128,7 @@ export default function KickCounterScreen() {
         </Pressable>
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={[styles.title, { color: colors.text }]}>Tekme Sayacı 🦶</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>10 Hareket Kuralı Seansı</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>10 Hareket Takibi · Tıbbi Tanı Değildir</Text>
         </View>
       </View>
 
@@ -103,7 +137,7 @@ export default function KickCounterScreen() {
         <View style={[styles.infoCard, { backgroundColor: isDark ? '#2D1F32' : '#FFF0F6', borderColor: Colors.floPink + '30' }]}>
           <Ionicons name="bulb-outline" size={20} color={Colors.floPink} />
           <Text style={[styles.infoText, { color: colors.text }]}>
-            Doktorlar 28. haftadan sonra günde 1 kez bebeğin 10 hareketini saymayı önerir. 10 harekete ulaşınca seans otomatik kaydedilir.
+            Genellikle 28. haftadan sonra günde 1 kez bebeğin 10 hareketini izlemeniz önerilir. 10 harekete ulaşıldığında seans otomatik kaydedilir.
           </Text>
         </View>
 
@@ -120,7 +154,7 @@ export default function KickCounterScreen() {
           >
             <Ionicons name="footsteps" size={48} color="#FFFFFF" />
             <Text style={styles.bigKickCount}>{kickCount} / 10</Text>
-            <Text style={styles.bigKickLabel}>TEKMELE DOKUN</Text>
+            <Text style={styles.bigKickLabel}>TEKMEDE DOKUN</Text>
           </Pressable>
 
           <View style={styles.actionRow}>
@@ -151,12 +185,25 @@ export default function KickCounterScreen() {
                     <Text style={[styles.histSub, { color: colors.textMuted }]}>10 Hareket Tamamlandı</Text>
                   </View>
                 </View>
-                <View style={[styles.histPill, { backgroundColor: isDark ? '#3D2032' : '#FFF0F6' }]}>
-                  <Text style={[styles.histPillText, { color: Colors.floPink }]}>{item.durationMinutes} Dk</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.histPill, { backgroundColor: isDark ? '#3D2032' : '#FFF0F6' }]}>
+                    <Text style={[styles.histPillText, { color: Colors.floPink }]}>{item.durationMinutes} Dk</Text>
+                  </View>
+                  <Pressable onPress={() => handleDeleteSession(item.id)} hitSlop={8}>
+                    <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+                  </Pressable>
                 </View>
               </View>
             ))
           )}
+        </View>
+
+        {/* Medical Disclaimer */}
+        <View style={[styles.disclaimerBox, { backgroundColor: isDark ? '#2D1F32' : '#F9F5FF', borderColor: colors.border }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={Colors.floPink} />
+          <Text style={[styles.disclaimerText, { color: colors.textMuted }]}>
+            Önemli Uyarı: Bu sayaç genel takip amaçlıdır, tanı veya tedavi sağlamaz. Bebeğinizin hareketlerinde belirgin bir azalma veya endişe duyduğunuz bir durum varsa beklemeden derhal kadın doğum uzmanınıza veya en yakın acil servise başvurunuz.
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -201,4 +248,6 @@ const styles = StyleSheet.create({
   histSub: { fontSize: 12, marginTop: 1 },
   histPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   histPillText: { fontSize: 12, fontWeight: '700' },
+  disclaimerBox: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginTop: 24, alignItems: 'flex-start' },
+  disclaimerText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });

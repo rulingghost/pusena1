@@ -1,27 +1,29 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { parseDateOnly, dateKey, computeIsPeriodActive } from '../common/dates';
+import { parseDateOnly, dateKey, computeIsPeriodActive, calculateCycleProgress, diffCalendarDays } from '../common/dates';
+import { assertUserNotMale } from '../common/gender-modules';
 
 @Injectable()
 export class PeriodService {
   constructor(private readonly prisma: PrismaService) {}
 
   async setup(userId: string, lastPeriodStart: string, cycleLength: number, periodLength: number) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const startDate = parseDateOnly(lastPeriodStart);
     const cycle = await this.prisma.periodCycle.create({
       data: { userId, startDate, cycleLength, periodLength },
     });
 
-    const nextPeriod = new Date(startDate.getTime() + cycleLength * 24 * 60 * 60 * 1000);
-    const ovulation = new Date(startDate.getTime() + (cycleLength - 14) * 24 * 60 * 60 * 1000);
+    const prog = calculateCycleProgress(startDate, cycleLength, periodLength);
 
     return {
       id: cycle.id, lastPeriodStart: startDate, cycleLength, periodLength,
-      nextPeriodDate: nextPeriod, ovulationDate: ovulation,
+      nextPeriodDate: prog.nextPeriodDate, ovulationDate: prog.ovulationDate,
     };
   }
 
   async getPeriod(userId: string) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const latestCycle = await this.prisma.periodCycle.findFirst({
       where: { userId },
       orderBy: { startDate: 'desc' },
@@ -40,19 +42,14 @@ export class PeriodService {
       ? Math.round(cycles.reduce((s, c) => s + c.cycleLength, 0) / cycles.length)
       : 28;
 
-    const currentCycleDay = Math.floor((Date.now() - latestCycle.startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-    const nextPeriod = new Date(latestCycle.startDate.getTime() + latestCycle.cycleLength * 24 * 60 * 60 * 1000);
-    const ovulationDay = latestCycle.cycleLength - 14;
-    const ovulation = new Date(latestCycle.startDate.getTime() + ovulationDay * 24 * 60 * 60 * 1000);
-    const fertileStart = new Date(ovulation.getTime() - 5 * 24 * 60 * 60 * 1000);
-    const fertileEnd = new Date(ovulation.getTime() + 1 * 24 * 60 * 60 * 1000);
+    const prog = calculateCycleProgress(latestCycle.startDate, latestCycle.cycleLength, latestCycle.periodLength);
 
     return {
       currentCycle: {
         id: latestCycle.id, startDate: latestCycle.startDate, endDate: latestCycle.endDate,
         cycleLength: latestCycle.cycleLength, periodLength: latestCycle.periodLength,
-        currentCycleDay, nextPeriodDate: nextPeriod, ovulationDate: ovulation,
-        fertileWindowStart: fertileStart, fertileWindowEnd: fertileEnd,
+        currentCycleDay: prog.currentCycleDay, nextPeriodDate: prog.nextPeriodDate, ovulationDate: prog.ovulationDate,
+        fertileWindowStart: prog.fertileStart, fertileWindowEnd: prog.fertileEnd,
         isPeriodActive: computeIsPeriodActive(latestCycle),
       },
       averageCycleLength: avgLength,
@@ -60,6 +57,7 @@ export class PeriodService {
   }
 
   async logDay(userId: string, date: string, flowLevel: number, notes?: string) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const d = parseDateOnly(date);
     const cycle = await this.prisma.periodCycle.findFirst({
       where: { userId },
@@ -77,6 +75,7 @@ export class PeriodService {
   }
 
   async getCalendar(userId: string, month: number, year: number) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59);
 
@@ -105,11 +104,12 @@ export class PeriodService {
       if (periodDay) {
         type = 'period';
       } else if (latestCycle) {
-        const daysSinceStart = Math.floor((currentDate.getTime() - latestCycle.startDate.getTime()) / (24 * 60 * 60 * 1000));
+        const daysSinceStart = diffCalendarDays(latestCycle.startDate, currentDate);
         const cycleDay = ((daysSinceStart % latestCycle.cycleLength) + latestCycle.cycleLength) % latestCycle.cycleLength;
         const ovDay = latestCycle.cycleLength - 14;
-        if (cycleDay === ovDay) type = 'ovulation';
-        else if (cycleDay >= ovDay - 5 && cycleDay <= ovDay + 1) type = 'fertile';
+        const ovIndex = ovDay - 1;
+        if (cycleDay === ovIndex) type = 'ovulation';
+        else if (cycleDay >= ovIndex - 5 && cycleDay <= ovIndex + 1) type = 'fertile';
         else if (cycleDay < latestCycle.periodLength) type = 'predicted';
       }
 
@@ -125,6 +125,7 @@ export class PeriodService {
   }
 
   async getHistory(userId: string, page: number, limit: number) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const [items, total] = await Promise.all([
       this.prisma.periodCycle.findMany({
         where: { userId },
@@ -147,6 +148,7 @@ export class PeriodService {
   }
 
   async startPeriod(userId: string, dateStr: string) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const date = parseDateOnly(dateStr);
     const prevCycle = await this.prisma.periodCycle.findFirst({
       where: { userId },
@@ -188,6 +190,7 @@ export class PeriodService {
   }
 
   async endPeriod(userId: string, dateStr?: string) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const date = dateStr ? parseDateOnly(dateStr) : parseDateOnly(dateKey(new Date()));
     const activeCycle = await this.prisma.periodCycle.findFirst({
       where: { userId },
@@ -218,6 +221,7 @@ export class PeriodService {
   }
 
   async endCycleById(userId: string, cycleId: string, dateStr: string) {
+    await assertUserNotMale(this.prisma, userId, 'regl');
     const cycle = await this.prisma.periodCycle.findFirst({ where: { id: cycleId, userId } });
     if (!cycle) throw new NotFoundException('Döngü bulunamadı');
 

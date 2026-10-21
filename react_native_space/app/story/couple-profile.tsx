@@ -13,6 +13,8 @@ import { customFetch, getErrorMessage } from '@/src/api/customFetch';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { copyToClipboard } from '@/src/utils/copyText';
 import { localDateKey } from '@/src/utils/dateOnly';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { stopPartnerLocationShare } from '@/src/location/backgroundShare';
 import { confirmPartnerPair } from '@/src/utils/pairFlow';
 
 export default function CoupleProfileScreen() {
@@ -184,9 +186,14 @@ export default function CoupleProfileScreen() {
                       style: 'destructive',
                       onPress: async () => {
                         try {
+                          await stopPartnerLocationShare().catch(() => {});
+                          await AsyncStorage.setItem('partner_location_sharing', '0').catch(() => {});
                           await customFetch('/api/relationship/unpair', { method: 'POST' });
                           await refreshUser();
                           await refetchPartnerInfo();
+                          await queryClient.invalidateQueries({ queryKey: ['/api/relationship'] });
+                          await queryClient.invalidateQueries({ queryKey: ['/api/relationship/live/location'] });
+                          await queryClient.invalidateQueries({ queryKey: ['relationship'] });
                         } catch (e) {
                           Alert.alert('Hata', getErrorMessage(e, 'Bağlantı kesilemedi.'));
                         }

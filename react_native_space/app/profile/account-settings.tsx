@@ -66,31 +66,29 @@ export default function AccountSettingsScreen() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const handleConfirmDelete = async () => {
-    if (!deletePw) {
-      Alert.alert('Uyarı', 'Hesabınızı silmek için mevcut şifrenizi girmeniz gerekmektedir.');
-      return;
-    }
-
     try {
       setIsDeletingAccount(true);
       await customFetch('/api/auth/account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: deletePw, reason: selectedReason, note: deleteNote.trim() || undefined }),
+        body: JSON.stringify({
+          password: deletePw.trim() || undefined,
+          reason: selectedReason,
+          note: deleteNote.trim() || undefined,
+        }),
       });
       setShowDeleteModal(false);
       Alert.alert('Hesabınız Silindi 🌸', 'Hesabınız ve tüm verileriniz başarıyla silindi. Sizi tekrar aramızda görmekten mutluluk duyarız.');
       await logout();
       router.replace('/auth/login');
     } catch (err: any) {
-      if (err?.status === 401) {
-        Alert.alert('Hata', 'Mevcut şifreniz yanlış. Lütfen şifrenizi doğru girdiğinizden emin olun.');
+      if (err?.status === 400 && (err?.body?.message?.includes('şifre') || err?.message?.includes('şifre'))) {
+        Alert.alert('Şifre Gerekli', 'Hesabınız e-posta/şifre ile oluşturulduğu için güvenliğiniz gereği lütfen mevcut şifrenizi giriniz.');
+      } else if (err?.status === 401) {
+        Alert.alert('Hata', 'Girdiğiniz şifre hatalı. Lütfen şifrenizi doğru girdiğinizden emin olun.');
       } else {
-        // If account was deleted in backend but response parsing failed, force logout
-        setShowDeleteModal(false);
-        Alert.alert('Hesabınız Silindi 🌸', 'Hesabınız başarıyla silinmiştir.');
-        await logout();
-        router.replace('/auth/login');
+        const errorMsg = err?.body?.message || err?.message || 'Hesap silinemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.';
+        Alert.alert('Hata', errorMsg);
       }
     } finally {
       setIsDeletingAccount(false);
@@ -226,10 +224,12 @@ export default function AccountSettingsScreen() {
                   numberOfLines={3}
                 />
 
-                <Text style={[styles.label, { color: colors.textSecondary, marginTop: 12 }]}>Onaylamak İçin Şifrenizi Girin</Text>
+                <Text style={[styles.label, { color: colors.textSecondary, marginTop: 12 }]}>
+                  Hesap Şifreniz (Google / Apple Girişlerinde Boş Bırakabilirsiniz)
+                </Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: Colors.danger + '50' }]}
-                  placeholder="Mevcut şifreniz"
+                  placeholder="Mevcut şifreniz (sosyal girişlerde boş bırakın)"
                   placeholderTextColor={colors.textMuted}
                   secureTextEntry
                   value={deletePw}

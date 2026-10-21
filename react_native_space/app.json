@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Pusena",
-    "slug": "abacusai-mobile-apps",
+    "slug": "pusena-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,13 +14,80 @@
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/icon.png",
-      "bundleIdentifier": "com.abacusai.bloomapp.t1787256823",
+      "bundleIdentifier": "com.pusena.app",
       "buildNumber": "1",
+      "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "location",
           "fetch",
           "remote-notification"
+        ],
+        "NSPhotoLibraryUsageDescription": "Pusena, profil resmi yüklemek ve toplulukta görsel paylaşmak için fotoğraf galerinize erişim ister."
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeHealth",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCoarseLocation",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePreciseLocation",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeEmailAddress",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeName",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          }
+        ],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["DDA9.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+          }
         ]
       }
     },
@@ -31,7 +98,7 @@
         "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.abacusai.bloomapp.t1787256823",
+      "package": "com.pusena.app",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -43,10 +110,9 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "autoVerify": true,
           "data": [
             {
-              "scheme": "abacusai1787256823",
+              "scheme": "pusenaapp",
               "host": "*"
             }
           ],
@@ -66,15 +132,29 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "usesCleartextTraffic": false
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-apple-authentication",
       "@react-native-community/datetimepicker",
       "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pusena, profil resmi yüklemek ve özel anı fotoğrafları eklemek için fotoğraf galerinize erişim ister."
+        }
+      ],
       [
         "expo-sensors",
         {
@@ -84,14 +164,14 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Pusena, eşleşmiş partnerinizle konum paylaşmak için konumunuza ihtiyaç duyar.",
-          "locationAlwaysAndWhenInUsePermission": "Paylaşım açıkken konumunuz uygulama kapalıyken de yalnızca eşleşmiş partnerinize gider.",
+          "locationWhenInUsePermission": "Pusena, yalnızca eşleştiğiniz partnerinizle anlık mesafe hesaplamak ve konum paylaşmak için konum bilginize erişir.",
+          "locationAlwaysAndWhenInUsePermission": "Pusena, eşleştiğiniz partnerinize uygulama kapalıyken de güncel konumunuzu iletebilmek için arka plan konum erişimine ihtiyaç duyar. Konumunuz üçüncü şahıslarla asla paylaşılmaz.",
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true
         }
       ]
     ],
-    "scheme": "abacusai1787256823",
+    "scheme": "pusenaapp",
     "extra": {
       "productionApiUrl": "https://pusena-api.onrender.com",
       "eas": {

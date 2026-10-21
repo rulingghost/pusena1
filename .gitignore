@@ -38,3 +38,4 @@ supabase/.branches
 *.jks
 google-services.json
 GoogleService-Info.plist
+nodejs_space/storage/

@@ -7,6 +7,7 @@ export interface UpdateWeekContentDto {
   babyWeight?: string;
   organDevelopment?: string;
   motherChanges?: string;
+  letterFromBaby?: string;
   commonSymptoms?: string[];
   tips?: string[];
   warnings?: string[];

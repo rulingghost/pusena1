@@ -4,62 +4,41 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Seed test admin account (internal)
-  const hashedPasswordInternal = await bcrypt.hash('ju8#6WOSeG', 10);
-  await prisma.user.upsert({
-    where: { email: 'abacus-707eb50e@example.com' },
-    update: {},
-    create: {
-      email: 'abacus-707eb50e@example.com',
-      password: hashedPasswordInternal,
-      name: 'System Admin',
-      isAdmin: true,
-      hasCompletedSetup: true,
-      settings: {
-        create: {
-          activeModules: ['pregnancy', 'period', 'relationship'],
-        },
-      },
-    },
-  });
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  // Seed demo admin account (admin / 1234566)
-  const hashedPasswordAdmin = await bcrypt.hash('1234566', 10);
-  await prisma.user.upsert({
-    where: { email: 'admin@bloom.com' },
-    update: { password: hashedPasswordAdmin, isAdmin: true, nickname: 'admin', name: 'Admin' },
-    create: {
-      email: 'admin@bloom.com',
-      password: hashedPasswordAdmin,
-      name: 'Admin',
-      nickname: 'admin',
-      isAdmin: true,
-      hasCompletedSetup: true,
-      settings: {
-        create: {
-          activeModules: ['pregnancy', 'period', 'relationship'],
-        },
-      },
-    },
-  });
+  // Seed initial admin account ONLY if provided via environment variables
+  // Never overwrite an existing admin's password!
+  const adminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim();
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD?.trim();
 
-  await prisma.user.upsert({
-    where: { email: 'a@a.com' },
-    update: { password: hashedPasswordAdmin, isAdmin: true, nickname: 'admin' },
-    create: {
-      email: 'a@a.com',
-      password: hashedPasswordAdmin,
-      name: 'Admin',
-      nickname: 'admin',
-      isAdmin: true,
-      hasCompletedSetup: true,
-      settings: {
-        create: {
-          activeModules: ['pregnancy', 'period', 'relationship'],
+  if (adminEmail && adminPassword) {
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          password: hashedPassword,
+          name: 'System Admin',
+          isAdmin: true,
+          hasCompletedSetup: true,
+          settings: {
+            create: {
+              activeModules: ['pregnancy', 'period', 'relationship'],
+            },
+          },
         },
-      },
-    },
-  });
+      });
+      console.log(`Initial admin account created for: ${adminEmail}`);
+    } else {
+      console.log(`Admin account ${adminEmail} already exists. Password was NOT changed.`);
+    }
+  } else if (!isProduction) {
+    console.log('No INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD set; skipping admin seed.');
+  }
 
   // Seed symptom types
   const symptomTypes = [
@@ -140,35 +119,37 @@ async function main() {
     });
   }
 
-  // Topluluk örnek verileri (gerçekçi gönderi ve yorumlar)
-  const demoPassword = await bcrypt.hash('demo1234', 10);
-  const demoUsers = [
-    { email: 'elif.k@demo.local', name: 'Elif K.', nickname: 'elif_k' },
-    { email: 'zeynep.a@demo.local', name: 'Zeynep A.', nickname: 'zeynep_a' },
-    { email: 'merve.d@demo.local', name: 'Merve D.', nickname: 'merve_d' },
-    { email: 'selin.y@demo.local', name: 'Selin Y.', nickname: 'selin_y' },
-    { email: 'ayse.t@demo.local', name: 'Ayşe T.', nickname: 'ayse_t' },
-  ];
+  // Topluluk örnek verileri (Sadece geliştirme ortamında ve SEED_DEMO_DATA=true ise)
+  if (!isProduction && process.env.SEED_DEMO_DATA === 'true') {
+    const rawDemoPass = process.env.DEMO_USERS_PASSWORD?.trim() || require('crypto').randomBytes(16).toString('hex');
+    const demoPassword = await bcrypt.hash(rawDemoPass, 10);
+    const demoUsers = [
+      { email: 'elif.k@demo.local', name: 'Elif K.', nickname: 'elif_k' },
+      { email: 'zeynep.a@demo.local', name: 'Zeynep A.', nickname: 'zeynep_a' },
+      { email: 'merve.d@demo.local', name: 'Merve D.', nickname: 'merve_d' },
+      { email: 'selin.y@demo.local', name: 'Selin Y.', nickname: 'selin_y' },
+      { email: 'ayse.t@demo.local', name: 'Ayşe T.', nickname: 'ayse_t' },
+    ];
 
-  const userIds: string[] = [];
-  for (const u of demoUsers) {
-    const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: {},
-      create: {
-        email: u.email,
-        password: demoPassword,
-        name: u.name,
-        nickname: u.nickname,
-        hasCompletedSetup: true,
-        settings: { create: { activeModules: ['period'] } },
-      },
-    });
-    userIds.push(user.id);
-  }
+    const userIds: string[] = [];
+    for (const u of demoUsers) {
+      const user = await prisma.user.upsert({
+        where: { email: u.email },
+        update: {},
+        create: {
+          email: u.email,
+          password: demoPassword,
+          name: u.name,
+          nickname: u.nickname,
+          hasCompletedSetup: true,
+          settings: { create: { activeModules: ['period'] } },
+        },
+      });
+      userIds.push(user.id);
+    }
 
-  const existingPosts = await prisma.communityPost.count();
-  if (existingPosts < 5) {
+    const existingPosts = await prisma.communityPost.count();
+    if (existingPosts < 5) {
     const postsData = [
       {
         authorIdx: 0,
@@ -246,6 +227,155 @@ async function main() {
         });
       }
     }
+  }
+  }
+
+  // Seed Store Reviewer Accounts (Apple App Store & Google Play App Access)
+  const seedReviewers = process.env.SEED_REVIEWER_ACCOUNTS === 'true' || !isProduction;
+  if (seedReviewers) {
+    const reviewerPasswordRaw = process.env.REVIEWER_PASSWORD?.trim() || 'Pusena2026Review!*';
+    const reviewerHashedPassword = await bcrypt.hash(reviewerPasswordRaw, 10);
+
+    // 1. Reviewer Female (Expecting Mother - Week 24)
+    const reviewerFemale = await prisma.user.upsert({
+      where: { email: 'reviewer.female@pusena.com' },
+      update: {
+        password: reviewerHashedPassword,
+        name: 'Zeynep Reviewer',
+        nickname: 'zeynep_rev',
+        gender: 'female',
+        hasCompletedSetup: true,
+      },
+      create: {
+        email: 'reviewer.female@pusena.com',
+        password: reviewerHashedPassword,
+        name: 'Zeynep Reviewer',
+        nickname: 'zeynep_rev',
+        gender: 'female',
+        partnerCode: 'BL-REV01',
+        hasCompletedSetup: true,
+        settings: {
+          create: {
+            activeModules: ['pregnancy', 'period', 'relationship'],
+          },
+        },
+      },
+    });
+
+    // 2. Reviewer Male (Partner)
+    const reviewerMale = await prisma.user.upsert({
+      where: { email: 'reviewer.male@pusena.com' },
+      update: {
+        password: reviewerHashedPassword,
+        name: 'Emre Reviewer',
+        nickname: 'emre_rev',
+        gender: 'male',
+        hasCompletedSetup: true,
+      },
+      create: {
+        email: 'reviewer.male@pusena.com',
+        password: reviewerHashedPassword,
+        name: 'Emre Reviewer',
+        nickname: 'emre_rev',
+        gender: 'male',
+        partnerCode: 'BL-REV02',
+        hasCompletedSetup: true,
+        settings: {
+          create: {
+            activeModules: ['relationship'],
+          },
+        },
+      },
+    });
+
+    // Pair Female & Male mutually
+    await prisma.user.update({
+      where: { id: reviewerFemale.id },
+      data: { pairedUserId: reviewerMale.id },
+    });
+    await prisma.user.update({
+      where: { id: reviewerMale.id },
+      data: { pairedUserId: reviewerFemale.id },
+    });
+
+    // Create mutual Relationship records if absent
+    const now = new Date();
+    const relStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // 1 year together
+    await prisma.relationship.upsert({
+      where: { userId: reviewerFemale.id },
+      update: { partnerName: reviewerMale.name, startDate: relStart },
+      create: { userId: reviewerFemale.id, partnerName: reviewerMale.name, startDate: relStart },
+    });
+    await prisma.relationship.upsert({
+      where: { userId: reviewerMale.id },
+      update: { partnerName: reviewerFemale.name, startDate: relStart },
+      create: { userId: reviewerMale.id, partnerName: reviewerFemale.name, startDate: relStart },
+    });
+
+    // Seed Active Pregnancy for Female Reviewer (Week 24: LMP ~168 days ago, Due date ~112 days in future)
+    const lmpDate = new Date(now.getTime() - 24 * 7 * 24 * 60 * 60 * 1000);
+    const dueDate = new Date(lmpDate.getTime() + 280 * 24 * 60 * 60 * 1000);
+    await prisma.pregnancy.upsert({
+      where: { userId: reviewerFemale.id },
+      update: {
+        lastMenstrualPeriod: lmpDate,
+        dueDate,
+        babyName: 'Deniz',
+        isActive: true,
+      },
+      create: {
+        userId: reviewerFemale.id,
+        lastMenstrualPeriod: lmpDate,
+        dueDate,
+        babyName: 'Deniz',
+        isActive: true,
+      },
+    });
+
+    // Seed Period Cycle for Female Reviewer
+    const cycleStart = new Date(lmpDate);
+    const cycleEnd = new Date(lmpDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+    const existingCycle = await prisma.periodCycle.findFirst({
+      where: { userId: reviewerFemale.id },
+    });
+    if (!existingCycle) {
+      await prisma.periodCycle.create({
+        data: {
+          userId: reviewerFemale.id,
+          startDate: cycleStart,
+          endDate: cycleEnd,
+          cycleLength: 28,
+          periodLength: 5,
+        },
+      });
+    }
+
+    // 3. Reviewer Fresh (Unpaired Female - Fresh Onboarding / Solo Tracking)
+    await prisma.user.upsert({
+      where: { email: 'reviewer.fresh@pusena.com' },
+      update: {
+        password: reviewerHashedPassword,
+        name: 'Aslı Reviewer',
+        nickname: 'asli_rev',
+        gender: 'female',
+        hasCompletedSetup: true,
+      },
+      create: {
+        email: 'reviewer.fresh@pusena.com',
+        password: reviewerHashedPassword,
+        name: 'Aslı Reviewer',
+        nickname: 'asli_rev',
+        gender: 'female',
+        partnerCode: 'BL-FRESH1',
+        hasCompletedSetup: true,
+        settings: {
+          create: {
+            activeModules: ['period'],
+          },
+        },
+      },
+    });
+    console.log('Store Reviewer accounts seeded successfully.');
   }
 
   console.log('Seed completed successfully');

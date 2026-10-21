@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { parseDateOnly, localDateKey, dateKey, calculatePregnancyProgress, diffCalendarDays } from '../common/dates';
 
 @Injectable()
 export class NotificationsService {
@@ -54,53 +55,82 @@ export class NotificationsService {
     const notif = await this.prisma.notification.findFirst({ where: { id: notificationId, userId } });
     if (!notif) throw new NotFoundException('Bildirim bulunamadı');
 
-    // Mark action done & read
-    await this.prisma.notification.update({
-      where: { id: notificationId },
-      data: { actionDone: true, isRead: true },
-    });
-
-    // Handle period_confirm action
-    if (notif.actionType === 'period_confirm' && answer === 'yes') {
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
-      const latestCycle = await this.prisma.periodCycle.findFirst({
-        where: { userId },
-        orderBy: { startDate: 'desc' },
-      });
-      if (latestCycle) {
-        await this.prisma.periodCycle.update({
-          where: { id: latestCycle.id },
-          data: { endDate: todayDate },
-        });
-        const newCycle = await this.prisma.periodCycle.create({
-          data: {
-            userId,
-            startDate: todayDate,
-            cycleLength: latestCycle.cycleLength,
-            periodLength: latestCycle.periodLength,
-          },
-        });
-        await this.prisma.periodDay.upsert({
-          where: { userId_date: { userId, date: todayDate } },
-          update: { flowLevel: 2 },
-          create: { userId, cycleId: newCycle.id, date: todayDate, flowLevel: 2 },
-        });
-        this.logger.log(`Period confirmed and logged for user ${userId}`);
-      }
+    // Idempotency: If already answered, do not re-run or create duplicate cycles
+    if (notif.actionDone) {
+      return { success: true };
     }
 
-    return { success: true };
+    return this.prisma.$transaction(async (tx) => {
+      // Mark action done & read atomically
+      await tx.notification.update({
+        where: { id: notificationId },
+        data: { actionDone: true, isRead: true },
+      });
+
+      // Handle period_confirm action
+      if (notif.actionType === 'period_confirm' && answer === 'yes') {
+        const todayDate = parseDateOnly(localDateKey());
+        const latestCycle = await tx.periodCycle.findFirst({
+          where: { userId },
+          orderBy: { startDate: 'desc' },
+        });
+
+        if (latestCycle) {
+          // If latest cycle already started today, just ensure periodDay is logged (idempotent)
+          if (dateKey(latestCycle.startDate) === dateKey(todayDate)) {
+            await tx.periodDay.upsert({
+              where: { userId_date: { userId, date: todayDate } },
+              update: { flowLevel: 2 },
+              create: { userId, cycleId: latestCycle.id, date: todayDate, flowLevel: 2 },
+            });
+          } else {
+            await tx.periodCycle.update({
+              where: { id: latestCycle.id },
+              data: { endDate: todayDate },
+            });
+            const newCycle = await tx.periodCycle.create({
+              data: {
+                userId,
+                startDate: todayDate,
+                cycleLength: latestCycle.cycleLength,
+                periodLength: latestCycle.periodLength,
+              },
+            });
+            await tx.periodDay.upsert({
+              where: { userId_date: { userId, date: todayDate } },
+              update: { flowLevel: 2 },
+              create: { userId, cycleId: newCycle.id, date: todayDate, flowLevel: 2 },
+            });
+          }
+          this.logger.log(`Period confirmed and logged for user ${userId}`);
+        }
+      }
+
+      return { success: true };
+    });
   }
 
   // Cron: send pregnancy tips to all pregnant users
   async sendPregnancyTips() {
-    const pregnancies = await this.prisma.pregnancy.findMany({
-      where: { isActive: true },
-      include: { user: { include: { settings: true } } },
-    });
+    const today = parseDateOnly(localDateKey());
 
-    // Hafta içerikleri bir kez okunur; eskiden her gebelik için ayrı sorgu atılıyordu.
+    const [pregnancies, sentToday] = await Promise.all([
+      this.prisma.pregnancy.findMany({
+        where: { isActive: true },
+        include: { user: { include: { settings: true } } },
+      }),
+      this.prisma.notification.findMany({
+        where: {
+          type: { in: ['pregnancy_tip', 'baby_letter', 'pregnancy_partner_update'] },
+          createdAt: { gte: today },
+        },
+        select: { userId: true, type: true },
+      }),
+    ]);
+
+    const alreadySent = new Set(sentToday.map((n) => `${n.userId}:${n.type}`));
+
+    // Hafta içerikleri bir kez okunur
     const partnerIds = pregnancies.map((p) => p.user?.pairedUserId).filter((id): id is string => !!id);
     const [weekRows, livePartners] = await Promise.all([
       this.prisma.pregnancyWeekContent.findMany(),
@@ -109,16 +139,15 @@ export class NotificationsService {
         : Promise.resolve([]),
     ]);
     const weekMap = new Map(weekRows.map((w) => [w.weekNumber, w]));
-    // Silinmiş partner kaydına yazmak toplu insert'i tamamen düşürürdü.
     const partnerExists = new Set(livePartners.map((u) => u.id));
 
     const rows: Array<{ userId: string; type: string; title: string; body: string; module: string }> = [];
 
     for (const p of pregnancies) {
       if (p.user?.settings?.pregnancyTips === false) continue;
-      const diffDays = Math.floor((Date.now() - p.lastMenstrualPeriod.getTime()) / (86400000));
-      const week = Math.min(Math.floor(diffDays / 7) + 1, 40);
-      const daysRemaining = Math.max(0, 280 - diffDays);
+      const prog = calculatePregnancyProgress(p.lastMenstrualPeriod, p.dueDate);
+      const week = Math.min(prog.week, 40);
+      const daysRemaining = prog.daysRemaining;
       const weekContent = weekMap.get(week);
       const tips = weekContent?.tips ?? [];
       const tip = tips.length
@@ -127,29 +156,39 @@ export class NotificationsService {
       const babyLetter = weekContent?.letterFromBaby ||
         `Anneciğim bu hafta ${week}. haftama ulaştım! Dünyaya gelmeme yaklaşık ${daysRemaining} gün kaldı, çok heyecanlıyım. Sizleri çok seviyorum 💕`;
 
-      rows.push({
-        userId: p.userId,
-        type: 'pregnancy_tip',
-        title: `${week}. Hafta İpucu 🤰`,
-        body: tip,
-        module: 'pregnancy',
-      });
-      rows.push({
-        userId: p.userId,
-        type: 'baby_letter',
-        title: `💌 Bebekten Anneye Mesaj (${week}. Hafta)`,
-        body: babyLetter,
-        module: 'pregnancy',
-      });
-
-      if (p.user?.pairedUserId && partnerExists.has(p.user.pairedUserId)) {
+      if (!alreadySent.has(`${p.userId}:pregnancy_tip`)) {
         rows.push({
-          userId: p.user.pairedUserId,
-          type: 'pregnancy_partner_update',
-          title: `👶 Gebelik Güncellemesi: ${week}. Hafta`,
-          body: `${p.user.name || 'Partneriniz'} ${week}. gebelik haftasında! Bebeğinizin büyümesi ve günün ipuçları Pusena'da hazır.`,
+          userId: p.userId,
+          type: 'pregnancy_tip',
+          title: `${week}. Hafta İpucu 🤰`,
+          body: tip,
           module: 'pregnancy',
         });
+        alreadySent.add(`${p.userId}:pregnancy_tip`);
+      }
+
+      if (!alreadySent.has(`${p.userId}:baby_letter`)) {
+        rows.push({
+          userId: p.userId,
+          type: 'baby_letter',
+          title: `💌 Bebekten Anneye Mesaj (${week}. Hafta)`,
+          body: babyLetter,
+          module: 'pregnancy',
+        });
+        alreadySent.add(`${p.userId}:baby_letter`);
+      }
+
+      if (p.user?.pairedUserId && partnerExists.has(p.user.pairedUserId)) {
+        if (!alreadySent.has(`${p.user.pairedUserId}:pregnancy_partner_update`)) {
+          rows.push({
+            userId: p.user.pairedUserId,
+            type: 'pregnancy_partner_update',
+            title: `👶 Gebelik Güncellemesi: ${week}. Hafta`,
+            body: `${p.user.name || 'Partneriniz'} ${week}. gebelik haftasında! Bebeğinizin büyümesi ve günün ipuçları Pusena'da hazır.`,
+            module: 'pregnancy',
+          });
+          alreadySent.add(`${p.user.pairedUserId}:pregnancy_partner_update`);
+        }
       }
     }
 
@@ -167,8 +206,7 @@ export class NotificationsService {
       include: { user: { include: { settings: true } } },
     });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = parseDateOnly(localDateKey());
 
     const partnerIds = allDates.map((sd) => sd.user?.pairedUserId).filter((id): id is string => !!id);
     // Bugün gönderilmiş hatırlatmalar tek sorguda; eskiden özel gün başına bir sorgu atılıyordu.
@@ -257,11 +295,9 @@ export class NotificationsService {
     const userIds = users.map((u) => u.id);
     if (!userIds.length) return { success: true, sentCount: 0 };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = parseDateOnly(localDateKey());
 
-    // Döngüler ve bugünkü hatırlatmalar iki sorguda toplanır; eskiden
-    // kullanıcı başına iki ayrı sorgu atılıyordu.
+    // Döngüler ve bugünkü hatırlatmalar iki sorguda toplanır
     const [cycles, sentToday] = await Promise.all([
       this.prisma.periodCycle.findMany({
         where: { userId: { in: userIds } },
@@ -295,7 +331,7 @@ export class NotificationsService {
       if (!latestCycle) continue;
 
       const nextPeriodDate = new Date(latestCycle.startDate.getTime() + latestCycle.cycleLength * 86400000);
-      const daysUntil = Math.floor((nextPeriodDate.getTime() - Date.now()) / 86400000);
+      const daysUntil = diffCalendarDays(today, nextPeriodDate);
 
       // 2 gün öncesinden başlayarak uyar; kullanıcı hazırlık yapabilsin.
       if (daysUntil >= -1 && daysUntil <= 2) {
@@ -334,3 +370,4 @@ export class NotificationsService {
     return { success: true, sentCount };
   }
 }
+

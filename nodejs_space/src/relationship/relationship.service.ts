@@ -141,103 +141,143 @@ export class RelationshipService {
   }
 
   async pairPartner(userId: string, partnerCode: string) {
-    const variants = normalizePartnerCode(partnerCode);
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Kullanıcı bulunamadı');
-    if (!user.gender) {
-      throw new BadRequestException('Eşleşmeden önce profilinizde cinsiyetinizi kaydedin.');
-    }
+    return await this.prisma.$transaction(async (tx) => {
+      const variants = normalizePartnerCode(partnerCode);
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException('Kullanıcı bulunamadı');
+      if (!user.gender) {
+        throw new BadRequestException('Eşleşmeden önce profilinizde cinsiyetinizi kaydedin.');
+      }
 
-    const myCodes = normalizePartnerCode(user.partnerCode || '');
-    if (variants.some((v) => myCodes.includes(v))) {
-      throw new BadRequestException('Kendi partner kodunuzu giremezsiniz');
-    }
+      const myCodes = normalizePartnerCode(user.partnerCode || '');
+      if (variants.some((v) => myCodes.includes(v))) {
+        throw new BadRequestException('Kendinizle eşleşemezsiniz');
+      }
 
-    const partner = await findUserByPartnerCode(this.prisma, partnerCode);
-    if (!partner) {
-      throw new NotFoundException('Geçersiz partner kodu. Kodun tam olarak partnerinizin ekranındaki gibi olduğundan emin olun (ör. BL-9X2K4A).');
-    }
+      const partner = await findUserByPartnerCode(tx, partnerCode);
+      if (!partner) {
+        throw new NotFoundException('Geçersiz partner kodu. Kodun tam olarak partnerinizin ekranındaki gibi olduğundan emin olun (ör. BL-9X2K4A).');
+      }
 
-    if (user.pairedUserId && user.pairedUserId !== partner.id) {
-      throw new ConflictException('Zaten başka bir hesapla eşleştiniz. Önce mevcut bağlantıyı kesin.');
-    }
-    if (partner.pairedUserId && partner.pairedUserId !== userId) {
-      throw new ConflictException('Bu partner kodu başka bir hesapla eşleşmiş');
-    }
+      if (partner.id === userId) {
+        throw new BadRequestException('Kendinizle eşleşemezsiniz');
+      }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pairedUserId: partner.id },
-    });
-    await this.prisma.user.update({
-      where: { id: partner.id },
-      data: { pairedUserId: userId },
-    });
+      if (user.pairedUserId && user.pairedUserId !== partner.id) {
+        throw new ConflictException('Zaten başka bir hesapla eşleştiniz. Önce mevcut bağlantıyı kesin.');
+      }
+      if (partner.pairedUserId && partner.pairedUserId !== userId) {
+        throw new ConflictException('Bu partner kodu başka bir hesapla eşleşmiş');
+      }
 
-    const myRel = await this.prisma.relationship.findUnique({ where: { userId } });
-    const partnerRel = await this.prisma.relationship.findUnique({ where: { userId: partner.id } });
-
-    if (partnerRel && !myRel) {
-      await this.prisma.relationship.create({
-        data: { userId, startDate: partnerRel.startDate, partnerName: partner.name },
+      await tx.user.update({
+        where: { id: userId },
+        data: { pairedUserId: partner.id },
       });
-    } else if (myRel && !partnerRel) {
-      await this.prisma.relationship.create({
-        data: { userId: partner.id, startDate: myRel.startDate, partnerName: user.name },
+      await tx.user.update({
+        where: { id: partner.id },
+        data: { pairedUserId: userId },
       });
-    } else if (!myRel && !partnerRel) {
-      const start = new Date();
-      await this.prisma.relationship.create({
-        data: { userId, startDate: start, partnerName: partner.name },
-      });
-      await this.prisma.relationship.create({
-        data: { userId: partner.id, startDate: start, partnerName: user.name },
-      });
-    } else if (myRel && partnerRel && myRel.startDate.getTime() !== partnerRel.startDate.getTime()) {
-      const earlier = myRel.startDate < partnerRel.startDate ? myRel.startDate : partnerRel.startDate;
-      await this.prisma.relationship.updateMany({
+
+      const myRel = await tx.relationship.findUnique({ where: { userId } });
+      const partnerRel = await tx.relationship.findUnique({ where: { userId: partner.id } });
+
+      if (partnerRel && !myRel) {
+        await tx.relationship.create({
+          data: { userId, startDate: partnerRel.startDate, partnerName: partner.name },
+        });
+      } else if (myRel && !partnerRel) {
+        await tx.relationship.create({
+          data: { userId: partner.id, startDate: myRel.startDate, partnerName: user.name },
+        });
+      } else if (!myRel && !partnerRel) {
+        const start = new Date();
+        await tx.relationship.create({
+          data: { userId, startDate: start, partnerName: partner.name },
+        });
+        await tx.relationship.create({
+          data: { userId: partner.id, startDate: start, partnerName: user.name },
+        });
+      } else if (myRel && partnerRel && myRel.startDate.getTime() !== partnerRel.startDate.getTime()) {
+        const earlier = myRel.startDate < partnerRel.startDate ? myRel.startDate : partnerRel.startDate;
+        await tx.relationship.updateMany({
+          where: { userId: { in: [userId, partner.id] } },
+          data: { startDate: earlier },
+        });
+      }
+
+      // Ensure both users start with location sharing disabled
+      await tx.partnerLocation.updateMany({
         where: { userId: { in: [userId, partner.id] } },
-        data: { startDate: earlier },
-      });
-    }
-
-    if (user.pairedUserId !== partner.id) {
-      await this.prisma.notification.create({
         data: {
-          userId: partner.id,
-          type: 'partner_paired',
-          module: 'relationship',
-          title: 'Partneriniz eşleşti',
-          body: `${user.nickname || user.name} sizinle Pusena’da eşleşti. Çift soruları, özel günler ve anılar artık ortak.`,
+          sharingEnabled: false,
+          latitude: 0,
+          longitude: 0,
+          accuracy: null,
         },
       });
-    }
 
-    return {
-      success: true,
-      partnerCode: user.partnerCode,
-      isPaired: true,
-      paired: true,
-      pairedUserName: partner.nickname || partner.name,
-      partnerName: partner.nickname || partner.name,
-      pairedUserEmail: partner.email,
-      pairedUserId: partner.id,
-      myGender: user.gender ?? null,
-      partnerGender: partner.gender ?? null,
-    };
+      if (user.pairedUserId !== partner.id) {
+        await tx.notification.create({
+          data: {
+            userId: partner.id,
+            type: 'partner_paired',
+            module: 'relationship',
+            title: 'Partneriniz eşleşti',
+            body: `${user.nickname || user.name} sizinle Pusena’da eşleşti. Çift soruları, özel günler ve anılar artık ortak.`,
+          },
+        }).catch(() => {});
+      }
+
+      return {
+        success: true,
+        partnerCode: user.partnerCode,
+        isPaired: true,
+        paired: true,
+        pairedUserName: partner.nickname || partner.name,
+        partnerName: partner.nickname || partner.name,
+        pairedUserEmail: partner.email,
+        pairedUserId: partner.id,
+        myGender: user.gender ?? null,
+        partnerGender: partner.gender ?? null,
+      };
+    });
   }
 
   async unpair(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { pairedUserId: true } });
-    if (user?.pairedUserId) {
-      await this.prisma.user.updateMany({
-        where: { id: { in: [userId, user.pairedUserId] } },
+    return await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { pairedUserId: true, partnerCode: true, gender: true } });
+      const partnerId = user?.pairedUserId;
+      const targetIds = partnerId ? [userId, partnerId] : [userId];
+
+      await tx.user.updateMany({
+        where: { id: { in: targetIds } },
         data: { pairedUserId: null },
       });
-    } else {
-      await this.prisma.user.update({ where: { id: userId }, data: { pairedUserId: null } });
-    }
-    return this.getPartnerInfo(userId);
+
+      // Reset location sharing and coordinates for both users
+      await tx.partnerLocation.updateMany({
+        where: { userId: { in: targetIds } },
+        data: {
+          sharingEnabled: false,
+          latitude: 0,
+          longitude: 0,
+          accuracy: null,
+        },
+      });
+
+      return {
+        partnerCode: user?.partnerCode || '',
+        isPaired: false,
+        paired: false,
+        pairedUserName: undefined,
+        partnerName: undefined,
+        pairedUserEmail: undefined,
+        pairedUserId: null,
+        myGender: user?.gender ?? null,
+        partnerGender: null,
+      };
+    });
   }
 
   async getCoupleQuestions(userId: string) {

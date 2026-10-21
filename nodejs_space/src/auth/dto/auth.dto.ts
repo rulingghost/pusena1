@@ -25,8 +25,10 @@ export class ForgotPasswordDto {
 }
 
 export class ResetPasswordDto {
-  @IsString() token: string;
-  @IsString() @MinLength(6) newPassword: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() code?: string;
+  @IsOptional() @IsString() token?: string;
+  @IsString() @MinLength(6, { message: 'Yeni şifre en az 6 karakter olmalıdır' }) newPassword: string;
 }
 
 export class ChangePasswordDto {
@@ -35,9 +37,20 @@ export class ChangePasswordDto {
 }
 
 export class DeleteAccountDto {
-  @IsString() password: string;
-  @IsOptional() @IsString() reason?: string;
-  @IsOptional() @IsString() note?: string;
+  @ApiProperty({ required: false, description: 'Hesap şifresi (sosyal girişli hesaplarda opsiyonel)' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @ApiProperty({ required: false, description: 'Hesap silme nedeni' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiProperty({ required: false, description: 'Ek açıklama veya not' })
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class UserResponseDto {
@@ -71,3 +84,58 @@ export class TokensResponseDto {
 export class MeResponseDto {
   @ApiProperty({ type: UserResponseDto }) user: UserResponseDto;
 }
+
+export class ExchangeCodeDto {
+  @ApiProperty({ description: 'OAuth one-time exchange code' })
+  @IsString()
+  code: string;
+}
+
+export class WebDeleteAccountDto {
+  @ApiProperty({ description: 'Kayıtlı e-posta adresi' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: 'Hesap şifresi' })
+  @IsString()
+  password: string;
+
+  @ApiProperty({ required: false, description: 'Hesap silme nedeni' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiProperty({ required: false, description: 'Ek açıklama veya not' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class AppleFullNameDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  givenName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  familyName?: string;
+}
+
+export class AppleAuthDto {
+  @ApiProperty({ description: 'Apple Identity Token (JWT)' })
+  @IsString()
+  @MinLength(10)
+  identityToken: string;
+
+  @ApiProperty({ required: false, description: 'Apple kullanıcı e-postası (varsa)' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiProperty({ required: false, type: AppleFullNameDto, description: 'Apple kullanıcı tam adı' })
+  @IsOptional()
+  fullName?: AppleFullNameDto;
+}
+

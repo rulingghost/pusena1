@@ -5,13 +5,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 import { DatePickerModal } from '@/src/components/DatePickerModal';
 import { computeGrowth, type Sex } from '@/src/data/whoGrowth';
 import { ageInDays, loadBabyProfile, saveBabyProfile, type BabyProfile } from '@/src/data/babyProfile';
 import { localDateKey } from '@/src/utils/dateOnly';
 
-const RECORDS_KEY = 'baby_growth_records';
+const FEATURE_KEY = 'baby_growth_records';
 
 interface GrowthRecord {
   id: string;
@@ -29,7 +30,13 @@ interface GrowthRecord {
 export default function PercentileScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
 
   const [profile, setProfile] = useState<BabyProfile>({ birthDate: null, sex: 'unknown' });
   const [records, setRecords] = useState<GrowthRecord[]>([]);
@@ -40,22 +47,26 @@ export default function PercentileScreen() {
   const [inHead, setInHead] = useState('');
 
   useEffect(() => {
-    Promise.all([loadBabyProfile(), AsyncStorage.getItem(RECORDS_KEY)]).then(([p, raw]) => {
+    let active = true;
+    setLoaded(false);
+    Promise.all([
+      loadBabyProfile(user?.id),
+      getWellnessData<GrowthRecord[]>(FEATURE_KEY, user?.id),
+    ]).then(([p, saved]) => {
+      if (!active) return;
       setProfile(p);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) setRecords(parsed);
-        } catch { /* ignore */ }
-      }
+      setRecords(Array.isArray(saved) ? saved : []);
       setLoaded(true);
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!loaded) return;
-    AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(records));
-  }, [records, loaded]);
+    void setWellnessData(FEATURE_KEY, records, user?.id);
+  }, [records, loaded, user?.id]);
 
   const days = ageInDays(profile.birthDate);
   const ageMonths = days == null ? null : Math.round((days / 30.4375) * 10) / 10;
@@ -138,7 +149,7 @@ export default function PercentileScreen() {
                   onPress={async () => {
                     const next = { ...profile, sex: s };
                     setProfile(next);
-                    await saveBabyProfile(next);
+                    await saveBabyProfile(next, user?.id);
                   }}
                 >
                   <Text style={{ color: sel ? '#fff' : colors.text, fontWeight: '700' }}>{s === 'girl' ? 'Kız' : 'Erkek'}</Text>
@@ -220,7 +231,7 @@ export default function PercentileScreen() {
         onSelect={async (d) => {
           const next = { ...profile, birthDate: localDateKey(d) };
           setProfile(next);
-          await saveBabyProfile(next);
+          await saveBabyProfile(next, user?.id);
           setShowBirthPicker(false);
         }}
         selectedDate={profile.birthDate ? new Date(profile.birthDate + 'T00:00:00') : new Date()}

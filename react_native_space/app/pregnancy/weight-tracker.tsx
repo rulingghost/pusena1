@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/useTheme';
 import { Colors } from '@/src/theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getWellnessData, setWellnessData } from '@/src/utils/wellnessStorage';
 
 interface WeightEntry {
   id: string;
@@ -17,41 +18,52 @@ interface WeightEntry {
 export default function WeightTrackerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
 
-  const [prePregnancyWeight, setPrePregnancyWeight] = useState<number>(60);
-  const [currentInput, setCurrentInput] = useState<string>('63.5');
-  const [currentWeekInput, setCurrentWeekInput] = useState<string>('24');
-  const [entries, setEntries] = useState<WeightEntry[]>([
-    { id: '1', week: 4, weight: 60.0, date: '15 Mart' },
-    { id: '2', week: 12, weight: 61.2, date: '10 Mayıs' },
-    { id: '3', week: 20, weight: 63.0, date: '5 Temmuz' },
-  ]);
+  if (user?.gender === 'MALE') {
+    router.replace('/tabs/home');
+    return null;
+  }
+
+  const [prePregnancyWeight, setPrePregnancyWeight] = useState<number>(0);
+  const [currentInput, setCurrentInput] = useState<string>('');
+  const [currentWeekInput, setCurrentWeekInput] = useState<string>('');
+  const [entries, setEntries] = useState<WeightEntry[]>([]);
 
   useEffect(() => {
-    AsyncStorage.getItem('weight_tracker_entries').then((data) => {
-      if (data) {
-        try {
-          setEntries(JSON.parse(data));
-        } catch {}
+    let active = true;
+    getWellnessData<WeightEntry[]>('weight_entries', user?.id).then((saved) => {
+      if (active && Array.isArray(saved)) {
+        setEntries(saved);
       }
     });
-    AsyncStorage.getItem('pre_pregnancy_weight').then((data) => {
-      if (data) setPrePregnancyWeight(parseFloat(data));
+    getWellnessData<number>('pre_pregnancy_weight', user?.id).then((w) => {
+      if (active && typeof w === 'number') {
+        setPrePregnancyWeight(w);
+      }
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const saveEntries = (updated: WeightEntry[]) => {
     setEntries(updated);
-    AsyncStorage.setItem('weight_tracker_entries', JSON.stringify(updated));
+    void setWellnessData('weight_entries', updated, user?.id);
   };
 
   const handleAddWeight = () => {
-    const w = parseFloat(currentInput);
+    const w = parseFloat(currentInput.replace(',', '.'));
     const wk = parseInt(currentWeekInput, 10);
-    if (isNaN(w) || isNaN(wk)) {
+    if (isNaN(w) || isNaN(wk) || w <= 0 || wk <= 0) {
       Alert.alert('Geçersiz Değer', 'Lütfen geçerli kilo ve hafta değeri girin.');
       return;
+    }
+
+    if (prePregnancyWeight <= 0) {
+      setPrePregnancyWeight(w);
+      void setWellnessData('pre_pregnancy_weight', w, user?.id);
     }
 
     const newEntry: WeightEntry = {
@@ -61,13 +73,35 @@ export default function WeightTrackerScreen() {
       date: new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
     };
 
-    const updated = [newEntry, ...entries].sort((a, b) => b.week - a.week);
+    const updated = [newEntry, ...entries.filter((e) => e.week !== wk)].sort((a, b) => b.week - a.week);
     saveEntries(updated);
+    setCurrentInput('');
     Alert.alert('Kaydedildi! ⚖️', `${wk}. hafta kilonuz ${w} kg olarak kaydedildi.`);
   };
 
-  const latestWeight = entries.length > 0 ? entries[0].weight : prePregnancyWeight;
-  const totalGain = parseFloat((latestWeight - prePregnancyWeight).toFixed(1));
+  const hasData = entries.length > 0 || prePregnancyWeight > 0;
+  const latestWeight = entries.length > 0 ? entries[0].weight : (prePregnancyWeight > 0 ? prePregnancyWeight : null);
+  const totalGain = prePregnancyWeight > 0 && latestWeight != null
+    ? parseFloat((latestWeight - prePregnancyWeight).toFixed(1))
+    : null;
+
+  const handleDeleteEntry = (id: string, week: number) => {
+    Alert.alert(
+      'Kaydı Sil',
+      `${week}. hafta kilo kaydını silmek istediğinize emin misiniz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            const updated = entries.filter((e) => e.id !== id);
+            saveEntries(updated);
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -78,7 +112,7 @@ export default function WeightTrackerScreen() {
         </Pressable>
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={[styles.title, { color: colors.text }]}>Kilo & Gelişim Takipçisi ⚖️</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Haftalık Sağlıklı Kilo Artışı</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Haftalık Sağlıklı Kilo Takibi</Text>
         </View>
       </View>
 
@@ -87,21 +121,29 @@ export default function WeightTrackerScreen() {
         <View style={[styles.summaryCard, { backgroundColor: isDark ? '#2D1F32' : '#FFF0F6', borderColor: Colors.floPink + '30' }]}>
           <View style={styles.summaryTopRow}>
             <View>
-              <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>TOPLAM ALINAN KİLO</Text>
-              <Text style={[styles.summaryBig, { color: Colors.floPink }]}>+{totalGain} kg</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>TOPLAM DEĞİŞİM</Text>
+              <Text style={[styles.summaryBig, { color: Colors.floPink }]}>
+                {totalGain != null ? `${totalGain >= 0 ? '+' : ''}${totalGain} kg` : '—'}
+              </Text>
             </View>
-            <View style={[styles.bmiPill, { backgroundColor: Colors.floTealLight }]}>
-              <Text style={[styles.bmiPillText, { color: Colors.floTeal }]}>İdeal Aralıkta (11-16 kg)</Text>
+            <View style={[styles.bmiPill, { backgroundColor: hasData ? Colors.floTealLight : (isDark ? '#3D2032' : '#F3F4F6') }]}>
+              <Text style={[styles.bmiPillText, { color: hasData ? Colors.floTeal : colors.textMuted }]}>
+                {hasData ? 'Genel Referans: 11-16 kg' : 'Henüz Veri Yok'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.weightStatsRow}>
             <View style={[styles.wStatBox, { backgroundColor: isDark ? '#3D2032' : '#FFFFFF' }]}>
-              <Text style={[styles.wStatNum, { color: colors.text }]}>{prePregnancyWeight} kg</Text>
+              <Text style={[styles.wStatNum, { color: colors.text }]}>
+                {prePregnancyWeight > 0 ? `${prePregnancyWeight} kg` : '—'}
+              </Text>
               <Text style={[styles.wStatLabel, { color: colors.textMuted }]}>Başlangıç Kilosu</Text>
             </View>
             <View style={[styles.wStatBox, { backgroundColor: isDark ? '#3D2032' : '#FFFFFF' }]}>
-              <Text style={[styles.wStatNum, { color: colors.text }]}>{latestWeight} kg</Text>
+              <Text style={[styles.wStatNum, { color: colors.text }]}>
+                {latestWeight != null ? `${latestWeight} kg` : '—'}
+              </Text>
               <Text style={[styles.wStatLabel, { color: colors.textMuted }]}>Mevcut Kilo</Text>
             </View>
           </View>
@@ -116,6 +158,8 @@ export default function WeightTrackerScreen() {
               <TextInput
                 style={[styles.textInput, { color: colors.text, borderColor: colors.border }]}
                 keyboardType="numeric"
+                placeholder="Örn: 16"
+                placeholderTextColor={colors.textMuted}
                 value={currentWeekInput}
                 onChangeText={setCurrentWeekInput}
               />
@@ -125,6 +169,8 @@ export default function WeightTrackerScreen() {
               <TextInput
                 style={[styles.textInput, { color: colors.text, borderColor: colors.border }]}
                 keyboardType="decimal-pad"
+                placeholder="Örn: 64.5"
+                placeholderTextColor={colors.textMuted}
                 value={currentInput}
                 onChangeText={setCurrentInput}
               />
@@ -140,20 +186,42 @@ export default function WeightTrackerScreen() {
         {/* History List */}
         <View style={styles.histSection}>
           <Text style={[styles.histSectionTitle, { color: colors.text }]}>Kilo Geçmişi</Text>
-          {entries.map((item) => (
-            <View key={item.id} style={[styles.entryRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={[styles.weekCircle, { backgroundColor: Colors.floPinkLight }]}>
-                  <Text style={[styles.weekCircleText, { color: Colors.floPink }]}>{item.week}</Text>
+          {entries.length === 0 ? (
+            <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="scale-outline" size={32} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                Henüz kilo kaydı eklenmedi. Kilonuzu yukarıdan ekleyerek takibe başlayabilirsiniz.
+              </Text>
+            </View>
+          ) : (
+            entries.map((item) => (
+              <View key={item.id} style={[styles.entryRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.weekCircle, { backgroundColor: Colors.floPinkLight }]}>
+                    <Text style={[styles.weekCircleText, { color: Colors.floPink }]}>{item.week}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.entryWeekTitle, { color: colors.text }]}>{item.week}. Hafta</Text>
+                    <Text style={[styles.entryDate, { color: colors.textMuted }]}>{item.date}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={[styles.entryWeekTitle, { color: colors.text }]}>{item.week}. Hafta</Text>
-                  <Text style={[styles.entryDate, { color: colors.textMuted }]}>{item.date}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={[styles.entryWeight, { color: colors.text }]}>{item.weight} kg</Text>
+                  <Pressable onPress={() => handleDeleteEntry(item.id, item.week)} hitSlop={8}>
+                    <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
               </View>
-              <Text style={[styles.entryWeight, { color: colors.text }]}>{item.weight} kg</Text>
-            </View>
-          ))}
+            ))
+          )}
+        </View>
+
+        {/* Medical Disclaimer */}
+        <View style={[styles.disclaimerBox, { backgroundColor: isDark ? '#2D1F32' : '#F9F5FF', borderColor: colors.border }]}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.floPink} />
+          <Text style={[styles.disclaimerText, { color: colors.textMuted }]}>
+            Yasal Uyarı: Bu kilo takibi aracı genel bilgilendirme amaçlıdır; tıbbi tanı veya tedavi yerine geçmez. Gebelikte sağlıklı kilo artışı kişisel sağlık durumuna ve başlangıç beden kitle indeksine göre değişir. Kilo ve beslenme hedefleriniz için mutlaka doktorunuza danışınız.
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -192,4 +260,8 @@ const styles = StyleSheet.create({
   entryWeekTitle: { fontSize: 14, fontWeight: '700' },
   entryDate: { fontSize: 11, marginTop: 1 },
   entryWeight: { fontSize: 16, fontWeight: '800' },
+  emptyBox: { padding: 24, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
+  emptyText: { fontSize: 13, textAlign: 'center' },
+  disclaimerBox: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginTop: 24, alignItems: 'flex-start' },
+  disclaimerText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });

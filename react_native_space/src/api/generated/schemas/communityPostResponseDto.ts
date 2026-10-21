@@ -6,6 +6,7 @@ export interface CommunityPostResponseDto {
   category: string;
   /** @nullable */
   pregnancyWeek: number | null;
+  isEdited: boolean;
   authorId: string;
   authorName: string;
   /** @nullable */

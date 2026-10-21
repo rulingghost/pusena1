@@ -1,6 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service';
 
-export async function getPairUserIds(prisma: PrismaService, userId: string): Promise<string[]> {
+export async function getPairUserIds(prisma: { user: any } | PrismaService | any, userId: string): Promise<string[]> {
   const linked = await ensureMutualPair(prisma, userId);
   return linked.partnerId ? [userId, linked.partnerId] : [userId];
 }
@@ -38,7 +38,7 @@ export function normalizePartnerCode(raw: string): string[] {
   return [...new Set([cleaned, withBl, withBloom, withPs, withPusena, withoutPrefix].filter((c) => c.length >= 4))];
 }
 
-export async function findUserByPartnerCode(prisma: PrismaService, raw: string) {
+export async function findUserByPartnerCode(prisma: { user: any } | PrismaService | any, raw: string) {
   const variants = normalizePartnerCode(raw);
   if (!variants.length) return null;
 
@@ -61,7 +61,7 @@ export async function findUserByPartnerCode(prisma: PrismaService, raw: string) 
   return null;
 }
 
-export async function ensureMutualPair(prisma: PrismaService, userId: string) {
+export async function ensureMutualPair(prisma: { user: any } | PrismaService | any, userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, pairedUserId: true, partnerCode: true, name: true, nickname: true, email: true, gender: true },

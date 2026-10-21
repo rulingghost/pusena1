@@ -11,15 +11,15 @@ export interface UserResponseDto {
   /** @nullable */
   avatarUrl: string | null;
   /** @nullable */
-  partnerCode?: string | null;
+  partnerCode: string | null;
   /** @nullable */
-  pairedUserId?: string | null;
+  pairedUserId: string | null;
   hasCompletedSetup: boolean;
   isAdmin: boolean;
   /** @nullable */
-  gender?: string | null;
-  language?: string;
+  gender: string | null;
+  language: string;
   /** @nullable */
-  birthYear?: number | null;
+  birthYear: number | null;
   createdAt: string;
 }
