@@ -101,8 +101,20 @@ export class AuthController {
 
   @Get('auth/google')
   async googleAuth(@Query('redirect_uri') redirectUri: string, @Res() res: Response): Promise<void> {
-    const url = this.authService.getGoogleAuthUrl(redirectUri);
-    res.redirect(url);
+    try {
+      const url = this.authService.getGoogleAuthUrl(redirectUri);
+      res.redirect(url);
+    } catch (err: any) {
+      if (redirectUri && this.authService.isAllowedRedirectUri(redirectUri)) {
+        try {
+          const target = new URL(redirectUri);
+          target.searchParams.set('error', err?.message || 'Google ile giriş şu anda aktif değildir.');
+          res.redirect(target.toString());
+          return;
+        } catch {}
+      }
+      res.status(400).json({ statusCode: 400, message: err?.message || 'Google ile giriş şu anda aktif değildir.' });
+    }
   }
 
   @Get('auth/google/callback')

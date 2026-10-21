@@ -43,12 +43,14 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     try {
+      setError('');
+      setIsLoading(true);
       const baseUrl = getApiBase();
       let redirectUri: string;
       if (Platform.OS === 'web') {
         redirectUri = `${window.location.origin}/auth/callback`;
       } else {
-        redirectUri = AuthSession.makeRedirectUri();
+        redirectUri = AuthSession.makeRedirectUri({ scheme: 'pusenaapp', path: 'auth/callback' });
       }
       const authUrl = new URL('/api/auth/google', baseUrl);
       authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -59,6 +61,11 @@ export default function LoginScreen() {
         const result = await WebBrowser.openAuthSessionAsync(authUrl.toString(), redirectUri);
         if (result.type === 'success' && result.url) {
           const url = new URL(result.url);
+          const errorParam = url.searchParams.get('error') || url.searchParams.get('message');
+          if (errorParam) {
+            setError(decodeURIComponent(errorParam));
+            return;
+          }
           const code = url.searchParams.get('code');
           if (code) {
             const res = await customFetch<AuthResponseDto>('/api/auth/exchange-code', {
@@ -84,7 +91,9 @@ export default function LoginScreen() {
         }
       }
     } catch (e) {
-      setError('Google ile giriş başarısız');
+      setError('Google ile giriş şu anda aktif değildir. Lütfen e-posta ve şifrenizle giriş yapınız.');
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -377,7 +377,7 @@ export class AuthService {
     try {
       const parsed = new URL(uri);
       // Mobile custom schemes
-      if (['pusena:', 'exp:', 'bloom:'].includes(parsed.protocol)) {
+      if (['pusena:', 'pusenaapp:', 'exp:', 'bloom:'].includes(parsed.protocol)) {
         return true;
       }
       // Web schemes
@@ -407,8 +407,11 @@ export class AuthService {
     if (!this.isAllowedRedirectUri(redirectUri)) {
       throw new BadRequestException('Geçersiz veya yetkilendirilmemiş yönlendirme adresi (redirect_uri)');
     }
-    const clientId = this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
-    const appOrigin = this.configService.get<string>('APP_ORIGIN', 'http://localhost:3000/');
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId || clientId === 'YOUR_GOOGLE_CLIENT_ID') {
+      throw new BadRequestException('Google ile giriş şu anda aktif değildir. Lütfen e-posta ve şifrenizle giriş yapınız.');
+    }
+    const appOrigin = this.configService.get<string>('APP_ORIGIN', 'https://pusena-api-live.onrender.com');
     const callbackUrl = new URL('/api/auth/google/callback', appOrigin).toString();
 
     const nonce = crypto.randomBytes(16).toString('hex');
