@@ -1,0 +1,23 @@
+name: Keep Render Backend Awake
+
+on:
+  schedule:
+    # Her 10 dakikada bir otomatik tetiklenir (Render ücretsiz servisleri 15 dakikada uyur)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # GitHub panelinden elle de tetiklenebilir
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health Endpoint
+        run: |
+          TARGET_URL="${{ secrets.RENDER_API_URL || 'https://pusena-api.onrender.com' }}"
+          echo "Pinging ${TARGET_URL}/health..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "${TARGET_URL}/health")
+          echo "Response HTTP Status: ${RESPONSE}"
+          if [ "${RESPONSE}" -ge 200 ] && [ "${RESPONSE}" -lt 400 ]; then
+            echo "Backend is awake and healthy!"
+          else
+            echo "Warning: Response code was ${RESPONSE}, but ping has awakened the instance."
+          fi

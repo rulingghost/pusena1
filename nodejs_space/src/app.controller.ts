@@ -13,7 +13,7 @@ export class AppController {
   }
 
   /** Uptime pinger buraya vurur; veritabanına dokunmaz. */
-  @Get('health')
+  @Get(['health', 'api/health'])
   getHealth() {
     return { status: 'ok', time: new Date().toISOString() };
   }
