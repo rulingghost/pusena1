@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Notifications } from '@/src/notifications/expoLocal';
 
 export const MEDS_KEY = 'medication_items';
-export const ALARM_OFFSETS = [30, 7, 3, 2, 1] as const;
+export const ALARM_OFFSETS = [7, 3, 1] as const;
 export type AlarmOffset = (typeof ALARM_OFFSETS)[number];
 
 /** Regl uyarısı kullanıcı tercihinden bağımsız olarak hep 2 ve 1 gün önce çalar. */

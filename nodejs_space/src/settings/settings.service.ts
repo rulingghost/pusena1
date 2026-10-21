@@ -44,7 +44,7 @@ export class SettingsService {
     if (dto.medicationReminder !== undefined) data.medicationReminder = dto.medicationReminder;
     if (dto.countdownReminder !== undefined) data.countdownReminder = dto.countdownReminder;
     if (dto.reminderOffsets !== undefined) {
-      const allowed = new Set([30, 7, 3, 1]);
+      const allowed = new Set([7, 3, 1]);
       data.reminderOffsets = [...new Set(dto.reminderOffsets.filter((n) => allowed.has(n)))].sort((a, b) => b - a);
     }
 
@@ -86,7 +86,7 @@ export class SettingsService {
       communityComments: s.communityComments,
       medicationReminder: s.medicationReminder ?? true,
       countdownReminder: s.countdownReminder ?? true,
-      reminderOffsets: Array.isArray(s.reminderOffsets) && s.reminderOffsets.length ? s.reminderOffsets : [30, 7, 3, 1],
+      reminderOffsets: Array.isArray(s.reminderOffsets) && s.reminderOffsets.length ? s.reminderOffsets.filter((n: number) => n !== 30) : [7, 3, 1],
     };
   }
 

@@ -11,7 +11,6 @@ import { ALARM_OFFSETS, ensureNotificationPermission } from '@/src/notifications
 import { useBloomAlertSync } from '@/src/notifications/useBloomAlertSync';
 
 const OFFSET_LABELS: Record<number, string> = {
-  30: '1 ay önce',
   7: '1 hafta önce',
   3: '3 gün önce',
   1: '1 gün önce',
@@ -26,10 +25,12 @@ export default function UnifiedRemindersScreen() {
   useBloomAlertSync(true);
 
   const n = (settings?.notifications || {}) as any;
-  const [offsets, setOffsets] = useState<number[]>([30, 7, 3, 1]);
+  const [offsets, setOffsets] = useState<number[]>([7, 3, 1]);
 
   useEffect(() => {
-    if (Array.isArray(n.reminderOffsets) && n.reminderOffsets.length) setOffsets(n.reminderOffsets);
+    if (Array.isArray(n.reminderOffsets) && n.reminderOffsets.length) {
+      setOffsets(n.reminderOffsets.filter((x: number) => x !== 30));
+    }
   }, [settings]);
 
   const enabled = {

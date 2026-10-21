@@ -24,7 +24,7 @@ type BoolKeys =
 const SETTINGS: { key: BoolKeys; label: string; desc?: string; section: string }[] = [
   { key: 'pregnancyWeekly', label: 'Haftalık gebelik bildirimi', desc: 'Haftalık gelişim özeti', section: 'Gebelik' },
   { key: 'pregnancyTips', label: 'Gebelik ipuçları', desc: 'Günlük öneriler', section: 'Gebelik' },
-  { key: 'countdownReminder', label: 'Kalan gün alarmları', desc: 'Doğum ve regl için 1 ay / 1 hafta / 3 gün / 1 gün kala', section: 'Gebelik' },
+  { key: 'countdownReminder', label: 'Kalan gün alarmları', desc: 'Doğum ve regl için 1 hafta / 3 gün / 1 gün kala', section: 'Gebelik' },
   { key: 'periodReminder', label: 'Regl hatırlatması', section: 'Regl' },
   { key: 'fertilityAlert', label: 'Doğurganlık uyarısı', section: 'Regl' },
   { key: 'medicationReminder', label: 'İlaç / vitamin saati', desc: 'Seçtiğiniz saatlerde alarm tarzı bildirim', section: 'Sağlık' },
@@ -34,7 +34,6 @@ const SETTINGS: { key: BoolKeys; label: string; desc?: string; section: string }
 ];
 
 const OFFSET_LABELS: Record<number, string> = {
-  30: '1 ay önce',
   7: '1 hafta önce',
   3: '3 gün önce',
   1: '1 gün önce',
@@ -47,7 +46,7 @@ export default function NotificationSettingsScreen() {
   const { data: settings, isLoading } = useSettingsControllerGetSettings();
   const updateMutation = usePatchNotificationSettings();
   const [values, setValues] = useState<Record<BoolKeys, boolean>>({} as any);
-  const [offsets, setOffsets] = useState<number[]>([30, 7, 3, 1]);
+  const [offsets, setOffsets] = useState<number[]>([7, 3, 1]);
 
   useEffect(() => {
     if (settings?.notifications) {
@@ -64,7 +63,7 @@ export default function NotificationSettingsScreen() {
         countdownReminder: n.countdownReminder !== false,
       });
       if (Array.isArray(n.reminderOffsets) && n.reminderOffsets.length) {
-        setOffsets(n.reminderOffsets);
+        setOffsets(n.reminderOffsets.filter((x: number) => x !== 30));
       }
     }
   }, [settings]);
