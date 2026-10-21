@@ -115,7 +115,7 @@ export class AssistantService {
           text: latestCycle
             ? `Döngünüz ${cycleDay} gün önce başladı (${phase}). Bugün vücudunuzda neler olduğunu birlikte konuşalım — aklınıza gelen her şeyi yazabilirsiniz.`
             : 'Merhaba, ben Pusena sağlık asistanıyım. Döngü, gebelik, beslenme veya semptomlar hakkında sorabilirsiniz.',
-          options: ['Hangi hormonlar aktif?', 'Bugün ne yemeliyim?', 'Cinsel istek durumu'],
+          options: [],
           timestamp: 'Bugün',
         },
       ],
@@ -153,7 +153,7 @@ You are not a doctor. Keep wellness advice general.
 Do not roleplay as a different person. Do not output markdown fences.
 
 Return ONLY valid JSON:
-{"text":"plain reply, 2-5 short paragraphs or a short list","options":["chip 1","chip 2","chip 3"]}
+{"text":"plain reply, 2-5 short paragraphs or a short list"}
 
 User profile (use only if relevant):
 ${context.summary}`;
@@ -202,7 +202,7 @@ ${context.summary}`;
         id: `rep-${Date.now()}`,
         sender: 'assistant',
         text: parsed.text,
-        options: parsed.options,
+        options: [],
         timestamp: 'Şimdi',
       };
     } catch {
@@ -221,12 +221,9 @@ ${context.summary}`;
       try {
         const json = JSON.parse(value) as { text?: string; options?: string[] };
         if (json.text && json.text.trim()) {
-          const options = Array.isArray(json.options)
-            ? json.options.filter((o) => typeof o === 'string' && o.trim()).slice(0, 3)
-            : [];
           return {
             text: json.text.trim(),
-            options: options.length ? options : ['Başka bir konu sor', 'Semptom kaydet'],
+            options: [],
           };
         }
       } catch {
@@ -247,7 +244,7 @@ ${context.summary}`;
     const plain = cleaned.replace(/\{[\s\S]*\}/, '').trim();
     return {
       text: plain || 'Kayıtlarınıza göre net bir cevap çıkaramadım. Soruyu biraz daha somut yazar mısınız?',
-      options: ['Başka bir konu sor', 'Semptom kaydet', 'Makalelere göz at'],
+      options: [],
     };
   }
 
@@ -337,7 +334,7 @@ ${context.summary}`;
       id: `rep-${Date.now()}`,
       sender: 'assistant',
       text: replyText,
-      options: followUps,
+      options: [],
       timestamp: 'Şimdi',
     };
   }

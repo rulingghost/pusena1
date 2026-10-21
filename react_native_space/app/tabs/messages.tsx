@@ -105,7 +105,7 @@ export default function MessagesScreen() {
             id: 'init-1',
             sender: 'assistant',
             text: data.phaseDescription || 'Merhaba! Bugün size nasıl yardımcı olabilirim?',
-            options: ['Bugün ne yemeliyim?', 'Semptomlarım normal mi?', 'Döngü evrem hakkında bilgi'],
+            options: [],
             timestamp: 'Bugün',
           }]);
         }
@@ -167,7 +167,7 @@ export default function MessagesScreen() {
           id: `asst-${Date.now()}`,
           sender: 'assistant',
           text: 'Şu anda yanıt üretemedim. Bağlantıyı kontrol edip tekrar deneyin — uydurma sağlık tavsiyesi vermiyorum.',
-          options: ['Semptom kaydet', 'Makalelere göz at'],
+          options: [],
           timestamp: 'Şimdi',
         },
       ]);
@@ -358,27 +358,6 @@ export default function MessagesScreen() {
                       {msg.text}
                     </Text>
                   </View>
-
-                  {/* Options Chips */}
-                  {isAsst && msg.options && msg.options.length > 0 && (
-                    <View style={styles.optionsRow}>
-                      {msg.options.map((opt, i) => (
-                        <Pressable
-                          key={i}
-                          style={[
-                            styles.optChip,
-                            {
-                              backgroundColor: isDark ? colors.card : '#FFF0F3',
-                              borderColor: Colors.floPinkLight,
-                            },
-                          ]}
-                          onPress={() => handleOptionPress(opt)}
-                        >
-                          <Text style={styles.optChipText}>{opt}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
 
                   {/* Flag / Report AI response */}
                   {isAsst && (
