@@ -213,7 +213,6 @@ export default function ModuleSetupScreen() {
           {[
             { key: 'female', label: 'Kadın', icon: 'female-outline' as const },
             { key: 'male', label: 'Erkek', icon: 'male-outline' as const },
-            { key: 'other', label: 'Belirtmek istemiyorum', icon: 'ellipsis-horizontal-outline' as const },
           ].map((g) => {
             const active = pickedGender === g.key;
             return (

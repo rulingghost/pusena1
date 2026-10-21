@@ -14,7 +14,6 @@ import { resolveMediaUrl } from '@/src/utils/mediaUrl';
 const GENDER_OPTIONS = [
   { key: 'female', label: 'Kadın', icon: 'female-outline' as const },
   { key: 'male', label: 'Erkek', icon: 'male-outline' as const },
-  { key: 'other', label: 'Belirtmek istemiyorum', icon: 'ellipsis-horizontal-outline' as const },
 ];
 
 export default function EditProfileScreen() {

@@ -27,7 +27,6 @@ export default function RegisterScreen() {
   const genderOptions = [
     { key: 'female', label: t.auth.female, icon: 'female-outline' as const },
     { key: 'male', label: t.auth.male, icon: 'male-outline' as const },
-    { key: 'other', label: t.auth.other, icon: 'ellipsis-horizontal-outline' as const },
   ];
 
   const handleRegister = async () => {
