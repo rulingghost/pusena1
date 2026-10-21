@@ -57,32 +57,32 @@ export default function SymptomsScreen() {
   const [bbtTemp, setBbtTemp] = useState<string>('36.5');
   const [dailyNote, setDailyNote] = useState<string>('');
 
-  // Icon mapping for symptom types
+  // Icon mapping for symptom types (all start empty/outline by default)
   const getChipMeta = (name: string, category: string): SymptomChipMeta => {
     const n = name.toLowerCase();
     if (n.includes('yapmadım') || n.includes('akıntı yok')) return { icon: 'close-circle-outline', iconColor: '#9CA3AF' };
-    if (n.includes('pozitif')) return { icon: 'checkmark-circle', iconColor: Colors.floTeal };
+    if (n.includes('pozitif')) return { icon: 'checkmark-circle-outline', iconColor: Colors.floTeal };
     if (n.includes('negatif')) return { icon: 'remove-circle-outline', iconColor: '#EF4444' };
-    if (n.includes('korunmalı')) return { icon: 'lock-closed', iconColor: Colors.floPink };
-    if (n.includes('korunmasız')) return { icon: 'lock-open', iconColor: '#F97316' };
-    if (n.includes('oral') || n.includes('dudak')) return { icon: 'heart', iconColor: Colors.floPink };
-    if (n.includes('mastürbasyon') || n.includes('dokunma')) return { icon: 'hand-left', iconColor: Colors.floPurple };
-    if (n.includes('oyuncak')) return { icon: 'sparkles', iconColor: Colors.floPurple };
-    if (n.includes('orgazm')) return { icon: 'flame', iconColor: '#E11D48' };
-    if (n.includes('yüksek cinsel') || n.includes('yüksek')) return { icon: 'heart-circle', iconColor: Colors.floPink };
+    if (n.includes('korunmalı')) return { icon: 'lock-closed-outline', iconColor: Colors.floPink };
+    if (n.includes('korunmasız')) return { icon: 'lock-open-outline', iconColor: '#F97316' };
+    if (n.includes('oral') || n.includes('dudak')) return { icon: 'heart-outline', iconColor: Colors.floPink };
+    if (n.includes('mastürbasyon') || n.includes('dokunma')) return { icon: 'hand-left-outline', iconColor: Colors.floPurple };
+    if (n.includes('oyuncak')) return { icon: 'sparkles-outline', iconColor: Colors.floPurple };
+    if (n.includes('orgazm')) return { icon: 'flame-outline', iconColor: '#E11D48' };
+    if (n.includes('yüksek cinsel') || n.includes('yüksek')) return { icon: 'heart-circle-outline', iconColor: Colors.floPink };
     if (n.includes('sakin')) return { icon: 'happy-outline', iconColor: '#F59E0B' };
-    if (n.includes('mutlu')) return { icon: 'happy', iconColor: '#10B981' };
-    if (n.includes('enerji')) return { icon: 'flash', iconColor: '#F59E0B' };
-    if (n.includes('cıvıl')) return { icon: 'sunny', iconColor: '#EC4899' };
-    if (n.includes('kramp') || n.includes('ağrı')) return { icon: 'radio-button-on', iconColor: '#EF4444' };
-    if (n.includes('göğüs')) return { icon: 'ellipse', iconColor: Colors.floPink };
-    if (n.includes('baş ağrısı')) return { icon: 'headset', iconColor: '#8B5CF6' };
-    if (n.includes('kaygan') || n.includes('sulu') || n.includes('yumurta')) return { icon: 'water', iconColor: '#3B82F6' };
-    if (n.includes('yoga') || n.includes('yürüyüş') || n.includes('koşu')) return { icon: 'fitness', iconColor: '#10B981' };
+    if (n.includes('mutlu')) return { icon: 'happy-outline', iconColor: '#10B981' };
+    if (n.includes('enerji')) return { icon: 'flash-outline', iconColor: '#F59E0B' };
+    if (n.includes('cıvıl')) return { icon: 'sunny-outline', iconColor: '#EC4899' };
+    if (n.includes('kramp') || n.includes('ağrı')) return { icon: 'ellipse-outline', iconColor: '#EF4444' };
+    if (n.includes('göğüs')) return { icon: 'ellipse-outline', iconColor: Colors.floPink };
+    if (n.includes('baş ağrısı')) return { icon: 'headset-outline', iconColor: '#8B5CF6' };
+    if (n.includes('kaygan') || n.includes('sulu') || n.includes('yumurta')) return { icon: 'water-outline', iconColor: '#3B82F6' };
+    if (n.includes('yoga') || n.includes('yürüyüş') || n.includes('koşu')) return { icon: 'fitness-outline', iconColor: '#10B981' };
     if (n.includes('stres') || n.includes('endişe')) return { icon: 'sad-outline', iconColor: '#6B7280' };
-    if (n.includes('meditasyon') || n.includes('nefes')) return { icon: 'leaf', iconColor: '#10B981' };
-    if (n.includes('kegel')) return { icon: 'body', iconColor: Colors.floPurple };
-    if (n.includes('ilaç')) return { icon: 'medical', iconColor: '#06B6D4' };
+    if (n.includes('meditasyon') || n.includes('nefes')) return { icon: 'leaf-outline', iconColor: '#10B981' };
+    if (n.includes('kegel')) return { icon: 'body-outline', iconColor: Colors.floPurple };
+    if (n.includes('ilaç')) return { icon: 'medical-outline', iconColor: '#06B6D4' };
     return { icon: 'ellipse-outline', iconColor: Colors.floPink };
   };
 
@@ -357,7 +357,7 @@ export default function SymptomsScreen() {
                         onPress={() => toggleChip(type)}
                       >
                         <Ionicons
-                          name={meta.icon as any}
+                          name={(isSelected ? 'checkmark-circle' : meta.icon) as any}
                           size={16}
                           color={isSelected ? '#FFFFFF' : meta.iconColor || Colors.floPink}
                         />
