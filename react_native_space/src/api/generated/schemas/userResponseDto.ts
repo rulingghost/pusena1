@@ -16,6 +16,7 @@ export interface UserResponseDto {
   pairedUserId: string | null;
   hasCompletedSetup: boolean;
   isAdmin: boolean;
+  hasPassword?: boolean;
   /** @nullable */
   gender: string | null;
   language: string;

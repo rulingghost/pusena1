@@ -2,7 +2,7 @@ import { Controller, Post, Get, Patch, Delete, Body, Req, Res, Query, UseGuards 
 import { ApiTags, ApiOperation, ApiOkResponse } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { SignupDto, LoginDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DeleteAccountDto, AuthResponseDto, TokensResponseDto, MeResponseDto, ExchangeCodeDto, WebDeleteAccountDto, AppleAuthDto } from './dto/auth.dto';
+import { SignupDto, LoginDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, SetPasswordDto, DeleteAccountDto, AuthResponseDto, TokensResponseDto, MeResponseDto, ExchangeCodeDto, WebDeleteAccountDto, AppleAuthDto } from './dto/auth.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SuccessResponseDto, SuccessMessageResponseDto } from '../common/dto/success.dto';
 
@@ -68,6 +68,14 @@ export class AuthController {
   @ApiOkResponse({ type: SuccessResponseDto })
   async changePassword(@Req() req: Request, @Body() dto: ChangePasswordDto): Promise<SuccessResponseDto> {
     return this.authService.changePassword((req as any).user.id, dto.currentPassword, dto.newPassword);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('auth/set-password')
+  @ApiOperation({ summary: 'Hesap şifresi belirle (şifresiz giriş yapan veya şifresi olmayan kullanıcılar için)' })
+  @ApiOkResponse({ type: SuccessResponseDto })
+  async setPassword(@Req() req: Request, @Body() dto: SetPasswordDto): Promise<SuccessResponseDto> {
+    return this.authService.setPassword((req as any).user.id, dto.password);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -53,6 +53,7 @@ export default function TabsLayout() {
 
   if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Redirect href="/auth/login" />;
+  if (user?.hasPassword === false) return <Redirect href="/auth/set-password" />;
   if (user?.isAdmin) return <Redirect href="/admin" />;
   if (!user?.hasCompletedSetup) return <Redirect href="/setup" />;
 

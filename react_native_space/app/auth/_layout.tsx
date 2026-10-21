@@ -10,8 +10,8 @@ export default function AuthLayout() {
   const pathname = usePathname();
 
   if (isLoading) return <LoadingScreen />;
-  // Allow callback screen for OAuth
-  if (isAuthenticated && !pathname?.includes('/auth/callback')) {
+  // Allow callback screen for OAuth & set-password screen for passwordless users
+  if (isAuthenticated && !pathname?.includes('/auth/callback') && !pathname?.includes('/auth/set-password')) {
     return <Redirect href={getPostAuthRoute(user)} />;
   }
 
@@ -22,6 +22,7 @@ export default function AuthLayout() {
       <Stack.Screen name="forgot-password" />
       <Stack.Screen name="callback" />
       <Stack.Screen name="server" />
+      <Stack.Screen name="set-password" />
     </Stack>
   );
 }

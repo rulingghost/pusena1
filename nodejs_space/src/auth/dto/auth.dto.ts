@@ -36,6 +36,13 @@ export class ChangePasswordDto {
   @IsString() @MinLength(6) newPassword: string;
 }
 
+export class SetPasswordDto {
+  @ApiProperty({ description: 'Yeni hesap şifresi', minLength: 6 })
+  @IsString()
+  @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
+  password: string;
+}
+
 export class DeleteAccountDto {
   @ApiProperty({ required: false, description: 'Hesap şifresi (sosyal girişli hesaplarda opsiyonel)' })
   @IsOptional()
@@ -64,6 +71,7 @@ export class UserResponseDto {
   @ApiProperty({ nullable: true, type: String }) pairedUserId: string | null;
   @ApiProperty() hasCompletedSetup: boolean;
   @ApiProperty() isAdmin: boolean;
+  @ApiProperty({ required: false }) hasPassword?: boolean;
   @ApiProperty({ nullable: true, type: String }) gender: string | null;
   @ApiProperty() language: string;
   @ApiProperty({ nullable: true, type: Number }) birthYear: number | null;

@@ -37,6 +37,7 @@ export class AuthService {
       pairedUserId: user.pairedUserId,
       hasCompletedSetup: user.hasCompletedSetup,
       isAdmin: user.isAdmin,
+      hasPassword: Boolean(user.password),
       gender: user.gender ?? null,
       language: user.language ?? 'tr',
       birthYear: user.birthYear ?? null,
@@ -272,6 +273,21 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { userId } }).catch(() => {});
     this.revokeUserTokens(userId);
 
+    return { success: true };
+  }
+
+  async setPassword(userId: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Şifre en az 6 karakter olmalıdır');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı');
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
     return { success: true };
   }
 
