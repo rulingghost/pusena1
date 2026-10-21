@@ -177,7 +177,8 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "./plugins/withCustomStrings"
     ],
     "scheme": "pusenaapp",
     "extra": {
