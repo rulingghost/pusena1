@@ -23,7 +23,7 @@
         "simulator": true
       },
       "env": {
-        "APP_ENV": "preview"
+        "APP_ENV": "production"
       }
     },
     "production": {
