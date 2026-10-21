@@ -238,7 +238,7 @@ export default function LoginScreen() {
 
         <Pressable
           style={{ alignItems: 'center', marginTop: 14 }}
-          onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+          onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
         >
           <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
             Gizlilik Politikası & Kullanım Koşulları

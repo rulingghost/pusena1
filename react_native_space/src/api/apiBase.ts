@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 const STORAGE_KEY = 'api_base_url';
-const PUBLIC_API = 'https://pusena-api.onrender.com';
+const PUBLIC_API = 'https://pusena-api-live.onrender.com';
 
 function clean(value?: string | null): string {
   return (value ?? '').trim().replace(/\/+$/, '');

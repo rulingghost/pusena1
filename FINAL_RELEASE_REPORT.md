@@ -61,7 +61,7 @@ Pusena projesi; Apple App Store İnceleme Kılavuzları (App Store Review Guidel
 
 ### 🔹 FAZ 8 (Grup 8) — P1 / M: Premium Temizliği, Web Hesap Silme ve Gizlilik [22 - 24]
 * **Madde 22 (Mock Premium Temizliği):** Mağaza incelemesinde reddedilmeye neden olabilecek sahte/mock premium butonları kaldırıldı.
-* **Madde 23 (Web/Uygulama Hesap Silme):** Apple Guideline 5.1.1(v) ve Google Play için `https://pusena-api.onrender.com/delete-account` web silme portalı yayına alındı.
+* **Madde 23 (Web/Uygulama Hesap Silme):** Apple Guideline 5.1.1(v) ve Google Play için `https://pusena-api-live.onrender.com/delete-account` web silme portalı yayına alındı.
 * **Madde 24 (Gizlilik Politikası Host Edilmesi):** Şeffaf veri işleme politikasını sunan `/privacy` web sayfası hazırlandı.
 
 ### 🔹 FAZ 9 (Grup 9) — M: Sağlık Beyanları, AI Güvenliği ve Moderasyon [25 - 27]
@@ -123,7 +123,7 @@ Mağaza inceleme süreçlerinde (App Store Review Guidelines & Google Play Store
 
 ### 🔹 Aşama 3: Yasal ve Yaş Uyumluluğu (COPPA & Apple 17+)
 * **18+ Yaş Onay Kutusu:** `app/auth/register.tsx` kayıt formuna zorunlu "18 yaşından büyük olduğumu..." onay kutusu eklendi.
-* **Kullanım Koşulları ve Gizlilik Onayı:** Kayıt ekranına zorunlu sözleşme onayı ve `https://pusena-api.onrender.com/privacy` bağlantıları eklendi. Giriş ekranına da politika bağlantıları sabitlendi.
+* **Kullanım Koşulları ve Gizlilik Onayı:** Kayıt ekranına zorunlu sözleşme onayı ve `https://pusena-api-live.onrender.com/privacy` bağlantıları eklendi. Giriş ekranına da politika bağlantıları sabitlendi.
 
 ---
 

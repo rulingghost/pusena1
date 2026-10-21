@@ -25,7 +25,7 @@ function isPrivateApiUrl(url) {
  */
 module.exports = ({ config }) => {
   const base = { ...appJson.expo, ...config };
-  const PRODUCTION_API_URL = base.extra?.productionApiUrl ?? 'https://pusena-api.onrender.com';
+  const PRODUCTION_API_URL = base.extra?.productionApiUrl ?? 'https://pusena-api-live.onrender.com';
   const isReleaseBuild =
     process.env.APP_ENV === 'preview' || process.env.APP_ENV === 'production';
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;

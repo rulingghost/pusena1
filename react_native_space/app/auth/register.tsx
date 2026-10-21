@@ -180,7 +180,7 @@ export default function RegisterScreen() {
                     I accept the{' '}
                     <Text
                       style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
-                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                      onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
                     >
                       Terms of Service & Privacy Policy
                     </Text>
@@ -190,14 +190,14 @@ export default function RegisterScreen() {
                   <>
                     <Text
                       style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
-                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                      onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
                     >
                       Kullanım Koşulları
                     </Text>{' '}
                     ve{' '}
                     <Text
                       style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
-                      onPress={() => Linking.openURL('https://pusena-api.onrender.com/privacy')}
+                      onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
                     >
                       Gizlilik Politikası
                     </Text>

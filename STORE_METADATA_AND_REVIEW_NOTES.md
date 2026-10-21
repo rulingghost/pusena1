@@ -107,7 +107,7 @@ All content and predictions provided by Pusena are for informational purposes on
 - **Kullanım Koşulları (EULA) URL:** `https://pusena.com/terms`
 - **Destek ve İletişim URL:** `https://pusena.com/support`
 - **Tıbbi Uyarı Beyanı URL:** `https://pusena.com/medical-disclaimer`
-- **Web Üzerinden Hesap Silme URL:** `https://pusena-api.onrender.com/delete-account`
+- **Web Üzerinden Hesap Silme URL:** `https://pusena-api-live.onrender.com/delete-account`
 
 ---
 
@@ -165,7 +165,7 @@ Apple App Store Review ve Google Play Console Review ekiplerinin uygulamayı tek
 #### 🔹 Senaryo 6: Hesap ve Veri Silme (Account Deletion Compliance)
 1. Profil -> Ayarlar -> **"Hesabımı Sil"** seçeneğine dokunun.
 2. Apple App Store Kural 5.1.1(v) ve Google Play Account Deletion politikası gereğince kullanıcının tüm verileri, döngü geçmişi, eşleşmesi ve hesabı anında kalıcı olarak silinmektedir.
-3. Ayrıca uygulama kapalıyken veya hesap silme web üzerinden yapılmak istendiğinde `https://pusena-api.onrender.com/delete-account` adresi kullanılabilir.
+3. Ayrıca uygulama kapalıyken veya hesap silme web üzerinden yapılmak istendiğinde `https://pusena-api-live.onrender.com/delete-account` adresi kullanılabilir.
 
 ---
 

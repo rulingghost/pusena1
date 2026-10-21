@@ -107,7 +107,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.pusena.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -181,8 +181,8 @@
     ],
     "scheme": "pusenaapp",
     "extra": {
-      "productionApiUrl": "https://pusena-api.onrender.com",
-      "apiUrl": "https://pusena-api.onrender.com",
+      "productionApiUrl": "https://pusena-api-live.onrender.com",
+      "apiUrl": "https://pusena-api-live.onrender.com",
       "supabaseUrl": {},
       "eas": {
         "projectId": "7bc418e6-d281-4c29-b935-84447480d52e"

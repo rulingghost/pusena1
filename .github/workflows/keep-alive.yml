@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping Backend Health Endpoint
         run: |
-          TARGET_URL="${{ secrets.RENDER_API_URL || 'https://pusena-api.onrender.com' }}"
+          TARGET_URL="${{ secrets.RENDER_API_URL || 'https://pusena-api-live.onrender.com' }}"
           echo "Pinging ${TARGET_URL}/health..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "${TARGET_URL}/health")
           echo "Response HTTP Status: ${RESPONSE}"

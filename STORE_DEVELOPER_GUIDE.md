@@ -14,7 +14,7 @@ Bu rehber, **Pusena** uygulamasının Google Play Console ve Apple App Store Con
 1. **D-U-N-S® Numarası:** Dun & Bradstreet tarafından şirketinize atanmış 9 haneli resmi kimlik numarası (ücretsiz olarak dnb.com üzerinden temin edilebilir).
 2. **Yasal Şirket Unvanı:** Vergi levhası ve ticaret sicil gazetesindeki tam ticari unvan.
 3. **Kurumsal Alan Adı & E-posta:** Şirket alan adıyla biten resmi e-posta (ör. `contact@pusena.com` veya `destek@pusena.com`; gmail.com veya hotmail.com adresleri kurumsal hesap için kabul edilmez).
-4. **Resmi Web Sitesi:** Aktif ve Gizlilik Politikası barındıran web sitesi (ör. `https://pusena-api.onrender.com/privacy` ve tanıtım sayfası).
+4. **Resmi Web Sitesi:** Aktif ve Gizlilik Politikası barındıran web sitesi (ör. `https://pusena-api-live.onrender.com/privacy` ve tanıtım sayfası).
 5. **Telefon Doğrulaması:** Şirket adına kayıtlı kurumsal sabit veya mobil hat.
 
 ---
@@ -71,7 +71,7 @@ Uygulamanın derleme ve mağaza kayıtlarında kullanılan paket kimlikleri aşa
 3. **Hesap Silme Akışı (Guideline 5.1.1(v)):**
    - Kullanıcı profil ayarlarından (`account-settings.tsx`) ve web üzerinden (`/delete-account.html`) tek adımda hesabını ve ilişkili tüm verilerini silebilir.
 4. **Gizlilik Politikası URL'i:**
-   - App Store Connect alanına `https://pusena-api.onrender.com/privacy` girilecektir.
+   - App Store Connect alanına `https://pusena-api-live.onrender.com/privacy` girilecektir.
 
 ---
 
