@@ -8,8 +8,7 @@ services:
     runtime: node
     plan: free
     rootDir: nodejs_space
-    # corepack varsayilan olarak /usr/bin altina yazmaya calisir, Render'da orasi salt okunur.
-    buildCommand: mkdir -p $HOME/.bin && corepack enable --install-directory $HOME/.bin && export PATH="$HOME/.bin:$PATH" && yarn install --immutable && npx prisma generate && yarn build
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: node dist/main
     healthCheckPath: /health
     envVars:
