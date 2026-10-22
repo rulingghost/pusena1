@@ -76,6 +76,38 @@ export default function PregnancyScreen() {
     }
   };
 
+  const handleEndPregnancy = () => {
+    Alert.alert(
+      'Gebeliği Sonlandır 🌸',
+      'Gebelik takibini sonlandırıp adet döngüsü moduna geçmek istediğinize emin misiniz? Dilediğiniz zaman gebelik takibini tekrar başlatabilirsiniz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Evet, Sonlandır',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await customFetch('/api/pregnancy', { method: 'DELETE' });
+              await customFetch('/api/settings/modules', {
+                method: 'PATCH',
+                body: JSON.stringify({ activeModules: ['period'] }),
+              });
+              await queryClient.invalidateQueries({ queryKey: ['/api/pregnancy'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/assistant/daily-insight'] });
+              await AsyncStorage.setItem('active_home_module', 'period');
+              Alert.alert('Bilgi', 'Gebelik takibi sonlandırıldı. Adet döngüsü moduna geçildi.');
+              router.replace('/tabs/home');
+            } catch {
+              Alert.alert('Hata', 'İşlem gerçekleştirilemedi. Lütfen internet bağlantınızı kontrol edin.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Theme tokens based on baby gender
   const themeColor = babyGender === 'girl' ? Colors.floPink : babyGender === 'boy' ? '#0284C7' : Colors.floTeal;
   const themeBgLight = babyGender === 'girl' ? '#FFF0F6' : babyGender === 'boy' ? '#E0F2FE' : '#ECFDF5';
@@ -358,6 +390,23 @@ export default function PregnancyScreen() {
           accentColor={themeColor}
         />
 
+        {/* End Pregnancy / Return to Period Action */}
+        <Pressable
+          style={[
+            styles.endPregnancyBtn,
+            {
+              borderColor: Colors.danger + '35',
+              backgroundColor: isDark ? '#2D161A' : '#FFF5F5',
+            },
+          ]}
+          onPress={handleEndPregnancy}
+        >
+          <Ionicons name="heart-dislike-outline" size={18} color={Colors.danger} />
+          <Text style={[styles.endPregnancyText, { color: Colors.danger }]}>
+            Gebeliği Sonlandır / Döngü Takibine Dön
+          </Text>
+        </Pressable>
+
         <MedicalDisclaimer variant="pregnancy" style={{ marginTop: 12 }} />
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -423,6 +472,19 @@ const styles = StyleSheet.create({
   tipText: { flex: 1, fontSize: 12.5, lineHeight: 18 },
   warningBox: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginTop: 12, alignItems: 'center' },
   warningText: { flex: 1, fontSize: 12, fontWeight: '600' },
+  endPregnancyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  endPregnancyText: { fontSize: 13.5, fontWeight: '700' },
   disclaimer: { fontSize: 11, textAlign: 'center', marginTop: 4 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80, gap: 12 },
   emptyText: { fontSize: 15, fontWeight: '600' },

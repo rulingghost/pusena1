@@ -24,6 +24,15 @@ export class SettingsService {
   async updateModules(userId: string, dto: UpdateModulesDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { gender: true } });
     const activeModules = filterModulesForGender(dto.activeModules, user?.gender);
+
+    // If pregnancy is deselected, immediately mark pregnancy inactive
+    if (!activeModules.includes('pregnancy')) {
+      await this.prisma.pregnancy.updateMany({
+        where: { userId, isActive: true },
+        data: { isActive: false },
+      });
+    }
+
     const settings = await this.prisma.userSettings.upsert({
       where: { userId },
       update: { activeModules },

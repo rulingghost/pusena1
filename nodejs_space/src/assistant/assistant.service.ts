@@ -28,11 +28,16 @@ export class AssistantService {
   ) {}
 
   async getDailyInsight(userId: string) {
-    const pregnancy = await this.prisma.pregnancy.findUnique({
-      where: { userId },
-    });
+    const [settings, pregnancy] = await Promise.all([
+      this.prisma.userSettings.findUnique({ where: { userId } }),
+      this.prisma.pregnancy.findUnique({ where: { userId } }),
+    ]);
 
-    if (pregnancy && pregnancy.isActive) {
+    const isPregnancyActive = Boolean(
+      settings?.activeModules?.includes('pregnancy') && pregnancy && pregnancy.isActive,
+    );
+
+    if (isPregnancyActive && pregnancy) {
       const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate);
       const currentWeek = prog.week;
       const remainingDays = prog.daysRemaining;
@@ -123,9 +128,50 @@ export class AssistantService {
   }
 
   async respondToUser(userId: string, question: string, history: Array<{ sender?: string; text?: string }> = []) {
+    // Intent check: if user says they are not pregnant or ended pregnancy, deactivate in DB immediately
+    await this.handlePregnancyTerminationIntent(userId, question);
+
     const groqReply = await this.askGroq(userId, question, history);
     if (groqReply) return groqReply;
     return this.fallbackReply(question);
+  }
+
+  private async handlePregnancyTerminationIntent(userId: string, question: string) {
+    const q = foldTr(question).toLowerCase();
+    const triggers = [
+      'gebe degilim',
+      'hamile degilim',
+      'gebelik bitti',
+      'gebeligi bitirdim',
+      'gebeligimi bitirdim',
+      'gebelik sonlandi',
+      'gebeligi sonlandirdim',
+      'gebeligimi sonlandirdim',
+      'dusuk yaptim',
+      'bebegi kaybettim',
+      'bebegimi kaybettim',
+      'kurtaj oldum',
+      'dogum yaptim',
+      'bebegim dogdu',
+      'bebek dogdu',
+    ];
+
+    if (triggers.some((t) => q.includes(t))) {
+      this.logger.log(`Pregnancy termination intent detected from user ${userId}: "${question}"`);
+      await this.prisma.pregnancy.updateMany({
+        where: { userId, isActive: true },
+        data: { isActive: false },
+      });
+      const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
+      if (settings?.activeModules?.includes('pregnancy')) {
+        const nextModules = settings.activeModules.filter((m) => m !== 'pregnancy');
+        if (!nextModules.includes('period')) nextModules.push('period');
+        await this.prisma.userSettings.update({
+          where: { userId },
+          data: { activeModules: nextModules },
+        });
+      }
+    }
   }
 
   private async askGroq(
@@ -256,11 +302,12 @@ ${context.summary}`;
 
   private async buildUserContext(userId: string): Promise<{ language: string; summary: string }> {
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    const [user, pregnancy, latestCycle, recentSymptoms, assessment] = await Promise.all([
+    const [user, settings, pregnancy, latestCycle, recentSymptoms, assessment] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
         select: { name: true, gender: true, language: true, birthYear: true, heightCm: true, weightKg: true },
       }),
+      this.prisma.userSettings.findUnique({ where: { userId } }),
       this.prisma.pregnancy.findUnique({ where: { userId } }),
       this.prisma.periodCycle.findFirst({ where: { userId }, orderBy: { startDate: 'desc' } }),
       this.prisma.symptom.findMany({
@@ -272,6 +319,10 @@ ${context.summary}`;
       this.prisma.fertilityAssessment.findUnique({ where: { userId } }),
     ]);
 
+    const isPregnancyActive = Boolean(
+      settings?.activeModules?.includes('pregnancy') && pregnancy && pregnancy.isActive,
+    );
+
     const lines: string[] = [];
     lines.push('User profile: Anonymous adult woman');
     if (user?.heightCm && user?.weightKg) {
@@ -279,12 +330,12 @@ ${context.summary}`;
       lines.push(`Body Mass Index: approx ${bmi}`);
     }
 
-    if (pregnancy?.isActive) {
+    if (isPregnancyActive && pregnancy) {
       const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate);
       lines.push(`PREGNANCY STATUS: ACTIVELY PREGNANT (Week ${prog.week}, approximately ${prog.daysRemaining} days remaining until estimated due date).`);
     } else {
       lines.push(
-        'PREGNANCY STATUS: NOT PREGNANT. The user is currently NOT pregnant (any prior pregnancy has ended, is inactive, or not present). CRITICAL: NEVER address user as pregnant, do not mention baby/fetus development or trimesters. Tailor all advice to normal cycle and general women wellness.',
+        'PREGNANCY STATUS: NOT PREGNANT. The user is currently NOT pregnant (she is not in pregnancy mode; any prior pregnancy has ended, is inactive, or not present). CRITICAL RULES: 1. NEVER address the user as pregnant. 2. NEVER mention fetal development, baby size, trimesters, or due dates. 3. Treat all questions strictly from the perspective of non-pregnant women\'s health, menstrual cycle, and wellness. 4. Even if prior chat messages in the history mentioned pregnancy or baby, completely ignore that past context because the pregnancy is now ended/inactive.',
       );
     }
 
@@ -322,7 +373,17 @@ ${context.summary}`;
       'Şu anda canlı asistan yanıtına ulaşamadım, bu yüzden genel bir not bırakıyorum. Tıbbi teşhis koymam; semptomlarınız şiddetliyse bir sağlık uzmanına danışın.';
     let followUps = ['Tekrar dene', 'Semptom kaydet', 'Makalelere göz at'];
 
-    if (q.includes('hormon') || q.includes('folikul') || q.includes('ostrojen')) {
+    if (
+      q.includes('gebe degil') ||
+      q.includes('hamile degil') ||
+      q.includes('dusuk') ||
+      q.includes('sonlandi') ||
+      q.includes('bitti')
+    ) {
+      replyText =
+        'Bilgilendirmeniz için teşekkür ederim. Kayıtlarınız güncellendi; şu anda döngü ve genel kadın sağlığı modundasınız. Bedeninizi dinlemek, döngünüz veya genel sağlığınız hakkında merak ettiğiniz her şeyi sorabilirsiniz.';
+      followUps = ['Döngümü incele', 'Semptom kaydet'];
+    } else if (q.includes('hormon') || q.includes('folikul') || q.includes('ostrojen')) {
       replyText =
         'Hormon düzeyini buradan ölçemem. Döngü kaydınız varsa evreye göre östrojen genellikle foliküler dönemde yükselir, luteal dönemde progesteron öne çıkar. Kendi semptomlarınızı kaydetmek daha işe yarar.';
       followUps = ['Semptom kaydet', 'Döngümü incele'];
@@ -336,8 +397,8 @@ ${context.summary}`;
       followUps = ['Partnerime yaz', 'Semptom ekle'];
     } else if (q.includes('boyut') || q.includes('bebek') || q.includes('hafta')) {
       replyText =
-        'Bebek boyunu uydurmam. Gebelik kaydınız açıksa üst karttaki haftayı kullanın; ayrıntı için gebelik sekmesindeki haftalık içeriğe bakın.';
-      followUps = ['Gebelik takibi', 'Makalelere göz at'];
+        'Bebek gelişim detayları yalnızca aktif bir gebelik takibiniz açık olduğunda sunulur. Eğer gebeyseniz Kurulum ekranından Gebelik modunu etkinleştirebilirsiniz; aksi halde döngü takibiniz üzerinden devam etmekteyiz.';
+      followUps = ['Döngümü incele', 'Makalelere göz at'];
     }
 
     return {
