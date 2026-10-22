@@ -170,16 +170,22 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         <View style={styles.header}>
-          <BrandLogo size="lg" />
-          <Text style={[styles.tagline, { color: colors.textSecondary }]}>Kadınlar İçin Yaşam Asistanı</Text>
+          <View style={[styles.logoBadge, { backgroundColor: isDark ? '#2D1622' : '#FFF0F5' }]}>
+            <BrandLogo size="md" />
+          </View>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Pusena</Text>
+          <Text style={[styles.tagline, { color: colors.textSecondary }]}>Kadın Yaşam & Sağlık Asistanı</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.welcome, { color: colors.text }]}>Hoş Geldin 💕</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: isDark ? colors.border : '#FCE7F3' }]}>
+          <Text style={[styles.welcome, { color: colors.text }]}>Tekrar Hoş Geldin 💕</Text>
+          <Text style={[styles.welcomeSub, { color: colors.textMuted }]}>
+            Döngü ve sağlık takibinize kaldığınız yerden devam edin.
+          </Text>
 
           {error ? (
-            <View style={[styles.errorBox, { backgroundColor: Colors.danger + '10' }]}>
-              <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+            <View style={[styles.errorBox, { backgroundColor: Colors.danger + '12', borderColor: Colors.danger + '30' }]}>
+              <Ionicons name="alert-circle" size={18} color={Colors.danger} />
               <Text style={styles.error}>{error}</Text>
             </View>
           ) : null}
@@ -187,13 +193,16 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>E-posta veya Kullanıcı Adı</Text>
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-              <Ionicons name="person-outline" size={18} color={Colors.primary + '80'} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={19} color={Colors.primary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="E-posta veya kullanıcı adı"
+                placeholder="ornek@gmail.com"
                 placeholderTextColor={colors.textMuted}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(val) => {
+                  setEmail(val);
+                  setError('');
+                }}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -201,23 +210,30 @@ export default function LoginScreen() {
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Şifre</Text>
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.primary + '80'} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={19} color={Colors.primary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 placeholder="••••••"
                 placeholderTextColor={colors.textMuted}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(val) => {
+                  setPassword(val);
+                  setError('');
+                }}
                 secureTextEntry={!showPassword}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textMuted} />
+              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={19} color={colors.textMuted} />
               </Pressable>
             </View>
 
-            <Link href="/auth/forgot-password" asChild>
-              <Pressable><Text style={[styles.forgotText, { color: Colors.primary }]}>Şifremi Unuttum</Text></Pressable>
-            </Link>
+            <View style={styles.forgotRow}>
+              <Link href="/auth/forgot-password" asChild>
+                <Pressable hitSlop={6}>
+                  <Text style={[styles.forgotText, { color: Colors.primary }]}>Şifremi Unuttum</Text>
+                </Pressable>
+              </Link>
+            </View>
 
             <Pressable
               style={styles.checkboxRow}
@@ -233,14 +249,14 @@ export default function LoginScreen() {
               />
               <Text style={[styles.checkboxLabel, { color: colors.text }]}>
                 <Text
-                  style={{ color: Colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                  style={{ color: Colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
                   onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
                 >
                   Kullanım Koşulları
                 </Text>{' '}
                 ve{' '}
                 <Text
-                  style={{ color: Colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                  style={{ color: Colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
                   onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
                 >
                   Gizlilik Politikası
@@ -254,7 +270,14 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={isLoading}
             >
-              {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="log-in-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.buttonText}>Giriş Yap</Text>
+                </>
+              )}
             </Pressable>
 
             <View style={styles.divider}>
@@ -270,13 +293,22 @@ export default function LoginScreen() {
                 disabled={isLoading}
               >
                 <Ionicons name="logo-apple" size={19} color={isDark ? '#000000' : '#FFFFFF'} />
-                <Text style={[styles.appleText, { color: isDark ? '#000000' : '#FFFFFF' }]}>Apple ile Giriş Yap</Text>
+                <Text style={[styles.appleText, { color: isDark ? '#000000' : '#FFFFFF' }]}>Apple ile Devam Et</Text>
               </Pressable>
             )}
 
-            <Pressable style={[styles.googleButton, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={handleGoogleLogin}>
-              <Ionicons name="logo-google" size={18} color={isDark ? '#FFF' : '#444'} />
-              <Text style={[styles.googleText, { color: colors.text }]}>Google ile Giriş Yap</Text>
+            <Pressable
+              style={[
+                styles.googleButton,
+                {
+                  borderColor: isDark ? colors.border : '#E5E7EB',
+                  backgroundColor: isDark ? colors.card : '#FFFFFF',
+                },
+              ]}
+              onPress={handleGoogleLogin}
+            >
+              <Ionicons name="logo-google" size={18} color={isDark ? '#FFF' : '#EA4335'} />
+              <Text style={[styles.googleText, { color: colors.text }]}>Google ile Devam Et</Text>
             </Pressable>
           </View>
         </View>
@@ -321,19 +353,33 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 24 },
 
-  header: { alignItems: 'center', marginBottom: 24 },
-  tagline: { fontSize: 13, marginTop: 10, letterSpacing: 0.5 },
+  header: { alignItems: 'center', marginBottom: 20 },
+  logoBadge: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#C96BAE',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: 0.6 },
+  tagline: { fontSize: 13.5, marginTop: 4, letterSpacing: 0.4 },
 
   card: {
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
     shadowColor: '#C96BAE',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 4,
   },
-  welcome: { fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 20 },
+  welcome: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  welcomeSub: { fontSize: 13.5, textAlign: 'center', marginBottom: 18, lineHeight: 19 },
 
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -346,11 +392,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderRadius: 16,
-    paddingHorizontal: 14, height: 50,
+    paddingHorizontal: 14, height: 52,
   },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 15 },
-  forgotText: { textAlign: 'right', fontSize: 13, fontWeight: '600' },
+  forgotRow: { alignItems: 'flex-end', marginTop: 2, marginBottom: 4 },
+  forgotText: { fontSize: 13, fontWeight: '600' },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -363,6 +410,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 52, borderRadius: 16,
+    flexDirection: 'row',
     justifyContent: 'center', alignItems: 'center',
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 12, elevation: 4,
   },
