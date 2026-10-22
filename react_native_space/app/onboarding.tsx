@@ -510,10 +510,12 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Header with Progress Bar */}
+      {/* Top Header with Centered Brand Logo */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) }]}>
+        <View style={styles.topBarSideSpacer} />
+
         <View style={styles.brandRow}>
-          <BrandLogo size={34} />
+          <BrandLogo size={36} />
           <Text style={[styles.brandName, { color: colors.text }]}>Pusena</Text>
         </View>
 
@@ -530,7 +532,7 @@ export default function OnboardingScreen() {
             </Text>
           </Pressable>
         ) : (
-          <View style={{ width: 44 }} />
+          <View style={styles.topBarSideSpacer} />
         )}
       </View>
 
@@ -665,13 +667,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  topBarSideSpacer: {
+    width: 60,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 8,
   },
   brandName: {
     fontSize: 20,
@@ -679,8 +685,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   skipBtn: {
+    width: 60,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 12,
     borderRadius: 14,
   },
   skipText: {

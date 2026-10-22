@@ -10,7 +10,7 @@ import { getErrorMessage } from '@/src/api/customFetch';
 
 export default function RegisterScreen() {
   const { signup } = useAuth();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { language, t } = useLanguage();
   const router = useRouter();
 
@@ -70,7 +70,9 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={[styles.container, { backgroundColor: colors.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <BrandLogo size="md" style={{ marginBottom: 12 }} />
+          <View style={[styles.logoBadge, { backgroundColor: isDark ? '#2D1622' : '#FFF0F5' }]}>
+            <BrandLogo size={64} />
+          </View>
           <Text style={[styles.title, { color: colors.text }]}>
             {language === 'en' ? 'Create Account' : 'Hesap Oluştur'}
           </Text>
@@ -227,6 +229,18 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 48 },
   header: { alignItems: 'center', marginBottom: 24 },
+  logoBadge: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+    shadowColor: '#C96BAE',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 3,
+  },
   title: { fontSize: 28, fontWeight: '700' },
   error: { color: '#F43F5E', textAlign: 'center', marginBottom: 16, fontSize: 14 },
   form: { gap: 16 },

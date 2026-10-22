@@ -171,7 +171,7 @@ export default function LoginScreen() {
 
         <View style={styles.header}>
           <View style={[styles.logoBadge, { backgroundColor: isDark ? '#2D1622' : '#FFF0F5' }]}>
-            <BrandLogo size="md" />
+            <BrandLogo size={64} />
           </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Pusena</Text>
           <Text style={[styles.tagline, { color: colors.textSecondary }]}>Kadın Yaşam & Sağlık Asistanı</Text>
@@ -355,9 +355,9 @@ const styles = StyleSheet.create({
 
   header: { alignItems: 'center', marginBottom: 20 },
   logoBadge: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
