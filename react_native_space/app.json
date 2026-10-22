@@ -107,7 +107,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.pusena.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
