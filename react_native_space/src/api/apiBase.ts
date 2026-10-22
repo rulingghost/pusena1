@@ -69,8 +69,8 @@ export async function loadApiBase(): Promise<string> {
   overrideBase = normalized && !isPrivateHost(normalized) ? normalized : '';
   const base = getApiBase();
   // Render'ın uykudaki örneğini erkenden uyandırır; açılışı bekletmemesi için
-  // hem beklenmez hem de kısa timeout ile çalışır.
-  pingApiBase(base, 6000).catch(() => {});
+  // beklenmeden arka planda çalıştırılır ve Render'ın soğuk açılışı (30-40sn) bitene kadar bağlantıyı açık tutar.
+  pingApiBase(base, 35000).catch(() => {});
   return base;
 }
 

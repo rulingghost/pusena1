@@ -2,9 +2,12 @@ name: Keep Render Backend Awake
 
 on:
   schedule:
-    # Her 10 dakikada bir otomatik tetiklenir (Render ücretsiz servisleri 15 dakikada uyur)
-    - cron: '*/10 * * * *'
+    # Her 5 dakikada bir tetiklenir (Render ücretsiz servisleri 15 dakika hareketsizlikte uyur)
+    - cron: '*/5 * * * *'
   workflow_dispatch: # GitHub panelinden elle de tetiklenebilir
+  push:
+    branches:
+      - main
 
 jobs:
   ping-health:
@@ -14,10 +17,17 @@ jobs:
         run: |
           TARGET_URL="${{ secrets.RENDER_API_URL || 'https://pusena-api-live.onrender.com' }}"
           echo "Pinging ${TARGET_URL}/health..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "${TARGET_URL}/health")
+          
+          # Render örneğini uyanık tutmak için User-Agent ile istek gönder
+          RESPONSE=$(curl -s -L -A "PusenaKeepAliveBot/1.0" -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "${TARGET_URL}/health" || true)
           echo "Response HTTP Status: ${RESPONSE}"
+          
+          # İkinci garanti ping: /api/health
+          curl -s -L -A "PusenaKeepAliveBot/1.0" -o /dev/null --connect-timeout 20 --max-time 45 "${TARGET_URL}/api/health" || true
+          
           if [ "${RESPONSE}" -ge 200 ] && [ "${RESPONSE}" -lt 400 ]; then
-            echo "Backend is awake and healthy!"
+            echo "✅ Backend is awake and healthy!"
           else
-            echo "Warning: Response code was ${RESPONSE}, but ping has awakened the instance."
+            echo "⚠️ Response code was ${RESPONSE}, ping sent to wake up instance."
           fi
+
