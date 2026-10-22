@@ -51,7 +51,7 @@ export class AssistantService {
             id: 'msg-1',
             sender: 'assistant',
             text: `Merhaba! Gebeliğinizin ${currentWeek}. haftasındasınız. Bu hafta bebeğinizin duyu organları ve sinir sistemi hızla gelişiyor. Dilediğiniz soruyu yazabilirsiniz.`,
-            options: ['Bebeğimin boyutu ne kadar?', 'Bu haftaki belirtiler neler?', 'Bana öneri ver'],
+            options: [],
             timestamp: 'Şimdi',
           },
         ],
@@ -146,6 +146,12 @@ export class AssistantService {
     const system = `You are Pusena, a careful women's health assistant in a period, fertility, pregnancy and relationship app.
 Answer in ${lang}. Be concrete, calm and useful. Never invent cycle days, hormone levels, diagnoses, lab results or baby size.
 If the user profile below does not contain a fact, say you don't have that data instead of guessing.
+
+CRITICAL PREGNANCY STATUS ENFORCEMENT:
+Check the PREGNANCY STATUS in the user profile below:
+- If PREGNANCY STATUS is 'NOT PREGNANT': The user is definitely NOT pregnant right now. Even if older messages in the conversation history mention being pregnant or a baby, you MUST NOT treat them as pregnant, do NOT talk about 'your pregnancy' or 'your baby', and do NOT assume active gestation. Treat them strictly under menstrual cycle / general wellness.
+- If PREGNANCY STATUS is 'ACTIVELY PREGNANT': You may address active pregnancy guidance according to the active week listed.
+
 Stay on topic: cycle, pregnancy, fertility, symptoms, nutrition, sleep, relationship support, or how to use Pusena.
 If the question is unrelated, briefly say so and offer a relevant health question.
 If symptoms sound urgent (heavy bleeding, fainting, reduced fetal movement, high fever, severe pain), tell them to seek medical care now.
@@ -275,7 +281,11 @@ ${context.summary}`;
 
     if (pregnancy?.isActive) {
       const prog = calculatePregnancyProgress(pregnancy.lastMenstrualPeriod, pregnancy.dueDate);
-      lines.push(`Active pregnancy: week ${prog.week}, approximately ${prog.daysRemaining} days remaining until estimated due date.`);
+      lines.push(`PREGNANCY STATUS: ACTIVELY PREGNANT (Week ${prog.week}, approximately ${prog.daysRemaining} days remaining until estimated due date).`);
+    } else {
+      lines.push(
+        'PREGNANCY STATUS: NOT PREGNANT. The user is currently NOT pregnant (any prior pregnancy has ended, is inactive, or not present). CRITICAL: NEVER address user as pregnant, do not mention baby/fetus development or trimesters. Tailor all advice to normal cycle and general women wellness.',
+      );
     }
 
     if (latestCycle) {

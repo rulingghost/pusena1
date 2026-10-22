@@ -124,6 +124,23 @@ export default function MessagesScreen() {
     fetchDailyInsight();
   }, []);
 
+  const handleResetChat = () => {
+    Alert.alert(
+      'Sohbeti Sıfırla 🔄',
+      'Mevcut sohbet geçmişi temizlenecek ve asistan güncel sağlık durumunuzla sıfırdan başlayacak. Devam etmek istiyor musunuz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: () => {
+            fetchDailyInsight();
+          },
+        },
+      ],
+    );
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || isSending) return;
 
@@ -219,6 +236,15 @@ export default function MessagesScreen() {
               </View>
             </View>
           </View>
+
+          <Pressable
+            style={[styles.actionPill, { backgroundColor: isDark ? colors.card : '#F3F4F6', marginRight: 6 }]}
+            onPress={handleResetChat}
+            accessibilityLabel="Sohbeti Sıfırla"
+          >
+            <Ionicons name="refresh-outline" size={15} color={colors.textSecondary} />
+            <Text style={[styles.actionPillText, { color: colors.textSecondary }]}>Yenile</Text>
+          </Pressable>
 
           <Pressable
             style={[styles.actionPill, { backgroundColor: isDark ? colors.card : '#F3F4F6' }]}
