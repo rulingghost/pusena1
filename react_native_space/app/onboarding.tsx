@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
-  Platform,
+  Animated,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -120,6 +120,169 @@ const SLIDES: SlideItem[] = [
   },
 ];
 
+// Tekil Animasyonlu Slayt Bileşeni
+function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; isEn: boolean; isDark: boolean; colors: any; isActive: boolean }) {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentSlide = useRef(new Animated.Value(24)).current;
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+
+  // Float & Pulse loop for hero icon
+  useEffect(() => {
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -8,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1.0,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    floatLoop.start();
+    pulseLoop.start();
+
+    return () => {
+      floatLoop.stop();
+      pulseLoop.stop();
+    };
+  }, []);
+
+  // Trigger smooth entrance whenever slide becomes active
+  useEffect(() => {
+    if (isActive) {
+      contentFade.setValue(0);
+      contentSlide.setValue(20);
+      scaleAnim.setValue(0.94);
+
+      Animated.parallel([
+        Animated.timing(contentFade, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.spring(contentSlide, {
+          toValue: 0,
+          tension: 40,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isActive]);
+
+  const cardBg = isDark ? item.bgDark : item.bgLight;
+
+  return (
+    <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+      {/* Animated Hero Card */}
+      <Animated.View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: cardBg,
+            borderColor: item.color + '30',
+            opacity: contentFade,
+            transform: [{ translateY: contentSlide }, { scale: scaleAnim }],
+          },
+        ]}
+      >
+        {/* Soft Ambient Glow Halo */}
+        <Animated.View
+          style={[
+            styles.ambientHalo,
+            {
+              backgroundColor: item.color + '15',
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        />
+
+        {/* Floating Hero Icon */}
+        <Animated.View
+          style={[
+            styles.heroIconCircle,
+            {
+              backgroundColor: item.color + '22',
+              borderColor: item.color + '40',
+              transform: [{ translateY: floatAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.heroEmoji}>{item.emoji}</Text>
+        </Animated.View>
+
+        {/* Badge Tag */}
+        <View style={[styles.badge, { backgroundColor: item.color + '22' }]}>
+          <Ionicons name={item.icon} size={15} color={item.color} style={{ marginRight: 6 }} />
+          <Text style={[styles.badgeText, { color: item.color }]}>
+            {isEn ? item.tagEn : item.tag}
+          </Text>
+        </View>
+
+        {/* Feature Highlights List */}
+        <View style={styles.featureList}>
+          {item.features.map((feat, idx) => (
+            <View key={idx} style={styles.featureItem}>
+              <View style={[styles.checkDot, { backgroundColor: item.color }]}>
+                <Ionicons name="checkmark" size={12} color="#FFF" />
+              </View>
+              <Text style={[styles.featureText, { color: colors.text }]}>
+                {isEn ? feat.en : feat.tr}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+
+      {/* Animated Text Info */}
+      <Animated.View
+        style={[
+          styles.textContainer,
+          {
+            opacity: contentFade,
+            transform: [{ translateY: contentSlide }],
+          },
+        ]}
+      >
+        <Text style={[styles.slideTitle, { color: colors.text }]}>
+          {isEn ? item.titleEn : item.title}
+        </Text>
+        <Text style={[styles.slideDesc, { color: colors.textMuted }]}>
+          {isEn ? item.descEn : item.desc}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -129,6 +292,7 @@ export default function OnboardingScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList<SlideItem>>(null);
+  const buttonPressScale = useRef(new Animated.Value(1)).current;
 
   // If already authenticated, redirect straight to their destination
   if (isAuthenticated) {
@@ -147,6 +311,20 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
+    // Button haptic bounce
+    Animated.sequence([
+      Animated.timing(buttonPressScale, {
+        toValue: 0.94,
+        duration: 90,
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonPressScale, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     if (isLastSlide) {
       handleFinish();
     } else {
@@ -200,56 +378,20 @@ export default function OnboardingScreen() {
         showsHorizontalScrollIndicator={false}
         bounces={false}
         onMomentumScrollEnd={onMomentumScrollEnd}
-        renderItem={({ item }) => {
-          const cardBg = isDark ? item.bgDark : item.bgLight;
-          return (
-            <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-              {/* Visual Card / Illustration Container */}
-              <View style={[styles.heroCard, { backgroundColor: cardBg, borderColor: item.color + '25' }]}>
-                <View style={[styles.heroIconCircle, { backgroundColor: item.color + '20' }]}>
-                  <Text style={styles.heroEmoji}>{item.emoji}</Text>
-                </View>
-
-                {/* Badge Tag */}
-                <View style={[styles.badge, { backgroundColor: item.color + '22' }]}>
-                  <Ionicons name={item.icon} size={15} color={item.color} style={{ marginRight: 6 }} />
-                  <Text style={[styles.badgeText, { color: item.color }]}>
-                    {isEn ? item.tagEn : item.tag}
-                  </Text>
-                </View>
-
-                {/* Feature Highlights List */}
-                <View style={styles.featureList}>
-                  {item.features.map((feat, idx) => (
-                    <View key={idx} style={styles.featureItem}>
-                      <View style={[styles.checkDot, { backgroundColor: item.color }]}>
-                        <Ionicons name="checkmark" size={12} color="#FFF" />
-                      </View>
-                      <Text style={[styles.featureText, { color: colors.text }]}>
-                        {isEn ? feat.en : feat.tr}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Text Info */}
-              <View style={styles.textContainer}>
-                <Text style={[styles.slideTitle, { color: colors.text }]}>
-                  {isEn ? item.titleEn : item.title}
-                </Text>
-                <Text style={[styles.slideDesc, { color: colors.textMuted }]}>
-                  {isEn ? item.descEn : item.desc}
-                </Text>
-              </View>
-            </View>
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <SlideCard
+            item={item}
+            isEn={isEn}
+            isDark={isDark}
+            colors={colors}
+            isActive={index === currentIndex}
+          />
+        )}
       />
 
       {/* Bottom Controls */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        {/* Pagination Dots */}
+        {/* Animated Pagination Dots */}
         <View style={styles.paginationRow}>
           {SLIDES.map((s, index) => {
             const isActive = index === currentIndex;
@@ -260,7 +402,7 @@ export default function OnboardingScreen() {
                   styles.dot,
                   {
                     backgroundColor: isActive ? currentSlide.color : isDark ? '#3D2D42' : '#E5E7EB',
-                    width: isActive ? 24 : 8,
+                    width: isActive ? 28 : 8,
                   },
                 ]}
               />
@@ -269,30 +411,29 @@ export default function OnboardingScreen() {
         </View>
 
         {/* Action Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionButton,
-            { backgroundColor: currentSlide.color, opacity: pressed ? 0.9 : 1 },
-          ]}
-          onPress={handleNext}
-          accessibilityRole="button"
-        >
-          <Text style={styles.actionButtonText}>
-            {isLastSlide
-              ? isEn
-                ? 'Get Started'
-                : 'Hemen Başla'
-              : isEn
-              ? 'Continue'
-              : 'Devam Et'}
-          </Text>
-          <Ionicons
-            name={isLastSlide ? 'checkmark-circle' : 'arrow-forward'}
-            size={20}
-            color="#FFF"
-            style={{ marginLeft: 8 }}
-          />
-        </Pressable>
+        <Animated.View style={{ width: '100%', transform: [{ scale: buttonPressScale }] }}>
+          <Pressable
+            style={[styles.actionButton, { backgroundColor: currentSlide.color }]}
+            onPress={handleNext}
+            accessibilityRole="button"
+          >
+            <Text style={styles.actionButtonText}>
+              {isLastSlide
+                ? isEn
+                  ? 'Get Started'
+                  : 'Hemen Başla'
+                : isEn
+                ? 'Continue'
+                : 'Devam Et'}
+            </Text>
+            <Ionicons
+              name={isLastSlide ? 'checkmark-circle' : 'arrow-forward'}
+              size={20}
+              color="#FFF"
+              style={{ marginLeft: 8 }}
+            />
+          </Pressable>
+        </Animated.View>
       </View>
     </View>
   );
@@ -312,49 +453,64 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   brandName: {
     fontSize: 20,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: 0.5,
   },
   skipBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 14,
   },
   skipText: {
     fontSize: 14,
     fontWeight: '600',
   },
   slideContainer: {
-    flex: 1,
     paddingHorizontal: 24,
-    justifyContent: 'space-around',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroCard: {
+    width: '100%',
     borderRadius: 28,
-    borderWidth: 1.5,
     padding: 24,
+    borderWidth: 1.5,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    marginBottom: 24,
+    shadowColor: '#C96BAE',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+    position: 'relative',
+  },
+  ambientHalo: {
+    position: 'absolute',
+    top: 24,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
   heroIconCircle: {
     width: 92,
     height: 92,
     borderRadius: 46,
-    alignItems: 'center',
+    borderWidth: 2,
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   heroEmoji: {
-    fontSize: 48,
+    fontSize: 44,
   },
   badge: {
     flexDirection: 'row',
@@ -365,9 +521,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   badgeText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
   },
   featureList: {
     width: '100%',
@@ -376,47 +532,48 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   checkDot: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    alignItems: 'center',
   },
   featureText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '600',
     flex: 1,
-    lineHeight: 19,
+    lineHeight: 18,
   },
   textContainer: {
+    width: '100%',
     alignItems: 'center',
     paddingHorizontal: 8,
-    marginTop: 8,
   },
   slideTitle: {
-    fontSize: 26,
+    fontSize: 23,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 10,
-    letterSpacing: -0.4,
+    lineHeight: 30,
+    letterSpacing: -0.3,
   },
   slideDesc: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   bottomBar: {
     paddingHorizontal: 24,
+    alignItems: 'center',
     gap: 20,
   },
   paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
   },
   dot: {
@@ -424,21 +581,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   actionButton: {
+    width: '100%',
     height: 56,
-    borderRadius: 16,
+    borderRadius: 20,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    alignItems: 'center',
+    shadowColor: Colors.floPink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 5,
   },
   actionButtonText: {
-    color: '#FFF',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    color: '#FFFFFF',
+    fontSize: 16.5,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
 });
