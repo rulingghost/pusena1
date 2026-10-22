@@ -121,25 +121,49 @@ const SLIDES: SlideItem[] = [
 ];
 
 // Tekil Animasyonlu Slayt Bileşeni
-function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; isEn: boolean; isDark: boolean; colors: any; isActive: boolean }) {
+function SlideCard({
+  item,
+  isEn,
+  isDark,
+  colors,
+  isActive,
+}: {
+  item: SlideItem;
+  isEn: boolean;
+  isDark: boolean;
+  colors: any;
+  isActive: boolean;
+}) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const orb1Anim = useRef(new Animated.Value(0)).current;
+  const orb2Anim = useRef(new Animated.Value(0)).current;
+
+  // Staggered entrance animations
   const contentFade = useRef(new Animated.Value(0)).current;
   const contentSlide = useRef(new Animated.Value(24)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
 
-  // Float & Pulse loop for hero icon
+  const feat0 = useRef(new Animated.Value(0)).current;
+  const feat1 = useRef(new Animated.Value(0)).current;
+  const feat2 = useRef(new Animated.Value(0)).current;
+
+  const featSlide0 = useRef(new Animated.Value(20)).current;
+  const featSlide1 = useRef(new Animated.Value(20)).current;
+  const featSlide2 = useRef(new Animated.Value(20)).current;
+
+  // Continuous floating loops for hero icon & ambient orbs
   useEffect(() => {
     const floatLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: -8,
-          duration: 1800,
+          duration: 1900,
           useNativeDriver: true,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
-          duration: 1800,
+          duration: 1900,
           useNativeDriver: true,
         }),
       ]),
@@ -148,13 +172,43 @@ function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; 
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1800,
+          toValue: 1.12,
+          duration: 2000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1.0,
-          duration: 1800,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const orb1Loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(orb1Anim, {
+          toValue: -12,
+          duration: 2400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(orb1Anim, {
+          toValue: 0,
+          duration: 2400,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const orb2Loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(orb2Anim, {
+          toValue: 10,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(orb2Anim, {
+          toValue: 0,
+          duration: 2200,
           useNativeDriver: true,
         }),
       ]),
@@ -162,29 +216,41 @@ function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; 
 
     floatLoop.start();
     pulseLoop.start();
+    orb1Loop.start();
+    orb2Loop.start();
 
     return () => {
       floatLoop.stop();
       pulseLoop.stop();
+      orb1Loop.stop();
+      orb2Loop.stop();
     };
   }, []);
 
-  // Trigger smooth entrance whenever slide becomes active
+  // Trigger rich staggered entrance whenever slide becomes active
   useEffect(() => {
     if (isActive) {
       contentFade.setValue(0);
-      contentSlide.setValue(20);
-      scaleAnim.setValue(0.94);
+      contentSlide.setValue(24);
+      scaleAnim.setValue(0.92);
+
+      feat0.setValue(0);
+      feat1.setValue(0);
+      feat2.setValue(0);
+
+      featSlide0.setValue(20);
+      featSlide1.setValue(20);
+      featSlide2.setValue(20);
 
       Animated.parallel([
         Animated.timing(contentFade, {
           toValue: 1,
-          duration: 450,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.spring(contentSlide, {
           toValue: 0,
-          tension: 40,
+          tension: 45,
           friction: 7,
           useNativeDriver: true,
         }),
@@ -195,43 +261,86 @@ function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; 
           useNativeDriver: true,
         }),
       ]).start();
+
+      Animated.stagger(100, [
+        Animated.parallel([
+          Animated.timing(feat0, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(featSlide0, { toValue: 0, tension: 50, friction: 7, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(feat1, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(featSlide1, { toValue: 0, tension: 50, friction: 7, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(feat2, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(featSlide2, { toValue: 0, tension: 50, friction: 7, useNativeDriver: true }),
+        ]),
+      ]).start();
     }
   }, [isActive]);
 
   const cardBg = isDark ? item.bgDark : item.bgLight;
+  const featAnims = [
+    { opacity: feat0, translateY: featSlide0 },
+    { opacity: feat1, translateY: featSlide1 },
+    { opacity: feat2, translateY: featSlide2 },
+  ];
 
   return (
     <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-      {/* Animated Hero Card */}
+      {/* Animated Hero Card with Floating Orbs */}
       <Animated.View
         style={[
           styles.heroCard,
           {
             backgroundColor: cardBg,
-            borderColor: item.color + '30',
+            borderColor: item.color + '35',
             opacity: contentFade,
-            transform: [{ translateY: contentSlide }, { scale: scaleAnim }],
+            transform: [
+              { translateY: contentSlide },
+              { scale: scaleAnim },
+            ],
           },
         ]}
       >
-        {/* Soft Ambient Glow Halo */}
+        {/* Floating Background Ambient Orbs */}
+        <Animated.View
+          style={[
+            styles.ambientOrb1,
+            {
+              backgroundColor: item.color + '18',
+              transform: [{ translateY: orb1Anim }, { scale: pulseAnim }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.ambientOrb2,
+            {
+              backgroundColor: item.color + '14',
+              transform: [{ translateY: orb2Anim }],
+            },
+          ]}
+        />
+
+        {/* Soft Ambient Glow Halo Behind Icon */}
         <Animated.View
           style={[
             styles.ambientHalo,
             {
-              backgroundColor: item.color + '15',
+              backgroundColor: item.color + '18',
               transform: [{ scale: pulseAnim }],
             },
           ]}
         />
 
-        {/* Floating Hero Icon */}
+        {/* Floating Hero Icon with Soft Shadow */}
         <Animated.View
           style={[
             styles.heroIconCircle,
             {
-              backgroundColor: item.color + '22',
-              borderColor: item.color + '40',
+              backgroundColor: item.color + '25',
+              borderColor: item.color + '45',
               transform: [{ translateY: floatAnim }],
             },
           ]}
@@ -247,18 +356,30 @@ function SlideCard({ item, isEn, isDark, colors, isActive }: { item: SlideItem; 
           </Text>
         </View>
 
-        {/* Feature Highlights List */}
+        {/* Staggered Animated Feature Highlights List */}
         <View style={styles.featureList}>
-          {item.features.map((feat, idx) => (
-            <View key={idx} style={styles.featureItem}>
-              <View style={[styles.checkDot, { backgroundColor: item.color }]}>
-                <Ionicons name="checkmark" size={12} color="#FFF" />
-              </View>
-              <Text style={[styles.featureText, { color: colors.text }]}>
-                {isEn ? feat.en : feat.tr}
-              </Text>
-            </View>
-          ))}
+          {item.features.map((feat, idx) => {
+            const anim = featAnims[idx] || { opacity: contentFade, translateY: contentSlide };
+            return (
+              <Animated.View
+                key={idx}
+                style={[
+                  styles.featureItem,
+                  {
+                    opacity: anim.opacity,
+                    transform: [{ translateY: anim.translateY }],
+                  },
+                ]}
+              >
+                <View style={[styles.checkDot, { backgroundColor: item.color }]}>
+                  <Ionicons name="checkmark" size={12} color="#FFF" />
+                </View>
+                <Text style={[styles.featureText, { color: colors.text }]}>
+                  {isEn ? feat.en : feat.tr}
+                </Text>
+              </Animated.View>
+            );
+          })}
         </View>
       </Animated.View>
 
@@ -292,7 +413,12 @@ export default function OnboardingScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList<SlideItem>>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  // Button micro-interaction animations
   const buttonPressScale = useRef(new Animated.Value(1)).current;
+  const arrowSlideX = useRef(new Animated.Value(0)).current;
+  const buttonHaloPulse = useRef(new Animated.Value(1)).current;
 
   // If already authenticated, redirect straight to their destination
   if (isAuthenticated) {
@@ -303,6 +429,25 @@ export default function OnboardingScreen() {
   const isLastSlide = currentIndex === SLIDES.length - 1;
   const currentSlide = SLIDES[currentIndex];
 
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(buttonHaloPulse, {
+          toValue: 1.05,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonHaloPulse, {
+          toValue: 1.0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
   const handleFinish = async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
@@ -311,18 +456,32 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
-    // Button haptic bounce
-    Animated.sequence([
-      Animated.timing(buttonPressScale, {
-        toValue: 0.94,
-        duration: 90,
-        useNativeDriver: true,
-      }),
-      Animated.spring(buttonPressScale, {
-        toValue: 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
+    // Button haptic bounce & arrow kick animation
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(buttonPressScale, {
+          toValue: 0.93,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.spring(buttonPressScale, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(arrowSlideX, {
+          toValue: 8,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.spring(arrowSlideX, {
+          toValue: 0,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start();
 
     if (isLastSlide) {
@@ -342,9 +501,16 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Interpolated progress width for smooth top progress bar
+  const progressWidth = scrollX.interpolate({
+    inputRange: [0, (SLIDES.length - 1) * SCREEN_WIDTH],
+    outputRange: [`${100 / SLIDES.length}%`, '100%'],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Header */}
+      {/* Top Header with Progress Bar */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) }]}>
         <View style={styles.brandRow}>
           <BrandLogo size={34} />
@@ -368,7 +534,20 @@ export default function OnboardingScreen() {
         )}
       </View>
 
-      {/* Slides FlatList */}
+      {/* Modern Slim Animated Progress Bar */}
+      <View style={[styles.progressTrack, { backgroundColor: isDark ? '#2D1F30' : '#F3E8F0' }]}>
+        <Animated.View
+          style={[
+            styles.progressFill,
+            {
+              backgroundColor: currentSlide.color,
+              width: progressWidth,
+            },
+          ]}
+        />
+      </View>
+
+      {/* Slides FlatList with Real-time Animated Scroll Event */}
       <FlatList
         ref={flatListRef}
         data={SLIDES}
@@ -377,6 +556,10 @@ export default function OnboardingScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+          useNativeDriver: false,
+        })}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={onMomentumScrollEnd}
         renderItem={({ item, index }) => (
           <SlideCard
@@ -391,18 +574,34 @@ export default function OnboardingScreen() {
 
       {/* Bottom Controls */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        {/* Animated Pagination Dots */}
+        {/* Animated Interactive Pagination Dots (60 FPS interpolated) */}
         <View style={styles.paginationRow}>
           {SLIDES.map((s, index) => {
-            const isActive = index === currentIndex;
+            const inputRange = [
+              (index - 1) * SCREEN_WIDTH,
+              index * SCREEN_WIDTH,
+              (index + 1) * SCREEN_WIDTH,
+            ];
+            const dotWidth = scrollX.interpolate({
+              inputRange,
+              outputRange: [8, 28, 8],
+              extrapolate: 'clamp',
+            });
+            const dotOpacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.3, 1, 0.3],
+              extrapolate: 'clamp',
+            });
+
             return (
-              <View
+              <Animated.View
                 key={s.id}
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: isActive ? currentSlide.color : isDark ? '#3D2D42' : '#E5E7EB',
-                    width: isActive ? 28 : 8,
+                    backgroundColor: s.color,
+                    width: dotWidth,
+                    opacity: dotOpacity,
                   },
                 ]}
               />
@@ -410,8 +609,25 @@ export default function OnboardingScreen() {
           })}
         </View>
 
-        {/* Action Button */}
-        <Animated.View style={{ width: '100%', transform: [{ scale: buttonPressScale }] }}>
+        {/* Action Button with Soft Pulse Halo & Bounce */}
+        <Animated.View
+          style={{
+            width: '100%',
+            transform: [{ scale: buttonPressScale }],
+            position: 'relative',
+          }}
+        >
+          {/* Subtle Ambient Glow behind action button */}
+          <Animated.View
+            style={[
+              styles.buttonGlowHalo,
+              {
+                backgroundColor: currentSlide.color + '30',
+                transform: [{ scale: buttonHaloPulse }],
+              },
+            ]}
+          />
+
           <Pressable
             style={[styles.actionButton, { backgroundColor: currentSlide.color }]}
             onPress={handleNext}
@@ -426,12 +642,14 @@ export default function OnboardingScreen() {
                 ? 'Continue'
                 : 'Devam Et'}
             </Text>
-            <Ionicons
-              name={isLastSlide ? 'checkmark-circle' : 'arrow-forward'}
-              size={20}
-              color="#FFF"
-              style={{ marginLeft: 8 }}
-            />
+            <Animated.View style={{ transform: [{ translateX: arrowSlideX }] }}>
+              <Ionicons
+                name={isLastSlide ? 'checkmark-circle' : 'arrow-forward'}
+                size={20}
+                color="#FFF"
+                style={{ marginLeft: 8 }}
+              />
+            </Animated.View>
           </Pressable>
         </Animated.View>
       </View>
@@ -598,5 +816,39 @@ const styles = StyleSheet.create({
     fontSize: 16.5,
     fontWeight: '800',
     letterSpacing: 0.4,
+  },
+  ambientOrb1: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  ambientOrb2: {
+    position: 'absolute',
+    bottom: -15,
+    left: -15,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: 3,
+    borderRadius: 1.5,
+  },
+  buttonGlowHalo: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 24,
   },
 });
