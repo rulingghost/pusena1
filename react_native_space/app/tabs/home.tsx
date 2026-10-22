@@ -82,26 +82,75 @@ export default function HomeScreen() {
     }
 
     const todayStr = localDateKey();
-    setPeriodActionLoading(true);
-    try {
-      if (isPeriodActive) {
-        await customFetch('/api/period/end', {
-          method: 'POST',
-          body: JSON.stringify({ date: todayStr }),
-        });
-        Alert.alert('Kaydedildi', 'Adet dönemi tamamlandı.');
-      } else {
-        await startPeriodMutation.mutateAsync({ data: { date: todayStr } });
-        Alert.alert('Kaydedildi', 'Adet dönemi bugün başladı.');
-      }
-      await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/period'] });
-      await refetch();
-    } catch (e) {
-      Alert.alert('Hata', getErrorMessage(e, 'İşlem kaydedilemedi.'));
-    } finally {
-      setPeriodActionLoading(false);
+    const actionDate = await AsyncStorage.getItem('last_period_action_date');
+    const actionType = await AsyncStorage.getItem('last_period_action_type');
+
+    if (isPeriodActive) {
+      const isSameDayStart = (actionDate === todayStr && actionType === 'started') || currentCycleDay <= 1;
+      const warningTitle = isSameDayStart ? 'Aynı Gün Regl Bitişi ⚠️' : 'Regl Dönemini Bitir ✓';
+      const warningMessage = isSameDayStart
+        ? 'Adet kanamanızın bugün başladığını kaydetmiştiniz. Tıbbi olarak normal bir adet kanaması genellikle 3 ila 7 gün sürer.\n\nHenüz ilk günde kanamanızın bittiğini onaylamak istiyor musunuz?'
+        : 'Adet kanamanızın bittiğini onaylamak istiyor musunuz?';
+
+      Alert.alert(warningTitle, warningMessage, [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Evet, Regl Bitti',
+          style: isSameDayStart ? 'destructive' : 'default',
+          onPress: async () => {
+            setPeriodActionLoading(true);
+            try {
+              await customFetch('/api/period/end', {
+                method: 'POST',
+                body: JSON.stringify({ date: todayStr }),
+              });
+              await AsyncStorage.setItem('last_period_action_date', todayStr);
+              await AsyncStorage.setItem('last_period_action_type', 'ended');
+              await AsyncStorage.removeItem('last_period_start_date');
+              Alert.alert('Kaydedildi ✨', 'Adet dönemi tamamlandı.');
+              await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/period'] });
+              await refetch();
+            } catch (e) {
+              Alert.alert('Hata', getErrorMessage(e, 'İşlem kaydedilemedi.'));
+            } finally {
+              setPeriodActionLoading(false);
+            }
+          },
+        },
+      ]);
+      return;
     }
+
+    const isSameDayEnd = actionDate === todayStr && actionType === 'ended';
+    const startTitle = isSameDayEnd ? 'Aynı Gün Yeniden Başlatma ⚠️' : 'Regl Başladı 🌸';
+    const startMessage = isSameDayEnd
+      ? 'Bugün adetinizin bittiğini kaydetmiştiniz. Yeniden adet başlangıcı kaydetmek döngünüzü güncelleyecektir. Onaylıyor musunuz?'
+      : 'Adet döneminizin bugün başladığını kaydetmek istiyor musunuz?';
+
+    Alert.alert(startTitle, startMessage, [
+      { text: 'İptal', style: 'cancel' },
+      {
+        text: 'Evet, Başladı',
+        onPress: async () => {
+          setPeriodActionLoading(true);
+          try {
+            await startPeriodMutation.mutateAsync({ data: { date: todayStr } });
+            await AsyncStorage.setItem('last_period_action_date', todayStr);
+            await AsyncStorage.setItem('last_period_action_type', 'started');
+            await AsyncStorage.setItem('last_period_start_date', todayStr);
+            Alert.alert('Kaydedildi 🌸', 'Adet dönemi bugün başladı.');
+            await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+            await queryClient.invalidateQueries({ queryKey: ['/api/period'] });
+            await refetch();
+          } catch (e) {
+            Alert.alert('Hata', getErrorMessage(e, 'İşlem kaydedilemedi.'));
+          } finally {
+            setPeriodActionLoading(false);
+          }
+        },
+      },
+    ]);
   };
 
   const onRefresh = async () => {
