@@ -48,7 +48,7 @@ const THEME_KEY = 'bloom_theme_mode';
 
 const ThemeContext = createContext<ThemeContextType>({
   isDark: false,
-  themeMode: 'system',
+  themeMode: 'light',
   setThemeMode: () => {},
   paletteKind: 'female',
   setPaletteKind: () => {},
@@ -115,7 +115,7 @@ function buildColors(isDark: boolean, paletteKind: PaletteKind): ThemeColors {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
   const [paletteKind, setPaletteKindState] = useState<PaletteKind>('female');
 
   useEffect(() => {
