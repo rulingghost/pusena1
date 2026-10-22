@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../common/email.service';
 import { SignupDto, LoginDto, ResetPasswordDto, WebDeleteAccountDto, AppleAuthDto } from './dto/auth.dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   private generatePartnerCode(): string {
@@ -186,6 +188,7 @@ export class AuthService {
       });
 
       this.logger.log(`[Şifre Sıfırlama Kodu] ${normalizedEmail} için üretilen kod: ${code}`);
+      await this.emailService.sendPasswordResetCode(normalizedEmail, code);
     }
 
     // Always return success message to prevent email enumeration
