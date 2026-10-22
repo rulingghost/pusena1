@@ -21,12 +21,17 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
     if (!email?.trim() || !password?.trim()) {
       setError('Lütfen tüm alanları doldurun');
+      return;
+    }
+    if (!isTermsAccepted) {
+      setError('Lütfen devam etmeden önce Kullanım Koşulları ve Gizlilik Politikası\'nı onaylayın');
       return;
     }
     setIsLoading(true);
@@ -42,6 +47,10 @@ export default function LoginScreen() {
   };
 
   const handleGoogleLogin = async () => {
+    if (!isTermsAccepted) {
+      setError('Lütfen Google ile devam etmeden önce Kullanım Koşulları ve Gizlilik Politikası\'nı onaylayın');
+      return;
+    }
     try {
       setError('');
       setIsLoading(true);
@@ -98,6 +107,10 @@ export default function LoginScreen() {
   };
 
   const handleAppleLogin = async () => {
+    if (!isTermsAccepted) {
+      setError('Lütfen Apple ile devam etmeden önce Kullanım Koşulları ve Gizlilik Politikası\'nı onaylayın');
+      return;
+    }
     try {
       if (Platform.OS === 'ios') {
         const isAvail = await AppleAuthentication.isAvailableAsync().catch(() => false);
@@ -207,6 +220,36 @@ export default function LoginScreen() {
             </Link>
 
             <Pressable
+              style={styles.checkboxRow}
+              onPress={() => setIsTermsAccepted(!isTermsAccepted)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isTermsAccepted }}
+            >
+              <Ionicons
+                name={isTermsAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={isTermsAccepted ? Colors.primary : colors.textMuted}
+                style={{ marginRight: 10, marginTop: 1 }}
+              />
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                <Text
+                  style={{ color: Colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                  onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
+                >
+                  Kullanım Koşulları
+                </Text>{' '}
+                ve{' '}
+                <Text
+                  style={{ color: Colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                  onPress={() => Linking.openURL('https://pusena-api-live.onrender.com/privacy')}
+                >
+                  Gizlilik Politikası
+                </Text>
+                'nı okudum, kabul ediyorum.
+              </Text>
+            </Pressable>
+
+            <Pressable
               style={[styles.button, { backgroundColor: Colors.primary }]}
               onPress={handleLogin}
               disabled={isLoading}
@@ -308,6 +351,16 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 15 },
   forgotText: { textAlign: 'right', fontSize: 13, fontWeight: '600' },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 6,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
   button: {
     height: 52, borderRadius: 16,
     justifyContent: 'center', alignItems: 'center',
