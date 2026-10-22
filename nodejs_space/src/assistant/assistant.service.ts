@@ -324,7 +324,26 @@ ${context.summary}`;
     );
 
     const lines: string[] = [];
-    lines.push('User profile: Anonymous adult woman');
+    if (user?.birthYear) {
+      const currentYear = new Date().getFullYear();
+      const age = Math.max(13, currentYear - user.birthYear);
+      let ageGroup = 'Genç Yetişkin (20-35 yaş)';
+      let clinicalFocus = 'Döngü düzenliliği, ovülasyon takibi, pik hormonal enerji, PMS yönetimi ve aktif yaşam.';
+      if (age < 20) {
+        ageGroup = 'Adolesan / Genç Kız (13-19 yaş)';
+        clinicalFocus = 'Nazik, teşvik edici ve eğitici üslup. İlk adet yıllarında döngü düzensizliği, ergenlik hormon değişimleri, cilt hassasiyetleri ve sınav/okul stresi doğaldır.';
+      } else if (age >= 36 && age <= 45) {
+        ageGroup = 'Olgun Dönem / Perimenopoz Geçişi (36-45 yaş)';
+        clinicalFocus = 'Döngü boyundaki doğal değişimler, progesteron dengesi, yumurtalık rezervi farkındalığı, kemik sağlığı, D vitamini ve kaliteli uyku.';
+      } else if (age > 45) {
+        ageGroup = 'Menopoz Geçişi & Olgun Sağlık (46+ yaş)';
+        clinicalFocus = 'Kardiyovasküler sağlık, sıcak basması yönetimi, kemik yoğunluğu desteği (kalsiyum/D vitamini), östrojen geçişi ve zihinsel dinginlik.';
+      }
+      lines.push(`KULLANICI YAŞI: ${age} yaşında (Doğum Yılı: ${user.birthYear}). Yaş Grubu: ${ageGroup}. Bu yaş grubuna özel klinik odak: ${clinicalFocus}`);
+    } else {
+      lines.push('User profile: Anonymous adult woman (Age not specified)');
+    }
+
     if (user?.heightCm && user?.weightKg) {
       const bmi = (user.weightKg / Math.pow(user.heightCm / 100, 2)).toFixed(1);
       lines.push(`Body Mass Index: approx ${bmi}`);

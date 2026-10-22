@@ -17,6 +17,7 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ageInput, setAgeInput] = useState('');
   const [gender, setGender] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
@@ -42,6 +43,21 @@ export default function RegisterScreen() {
       setError(language === 'en' ? 'Password must be at least 6 characters' : 'Şifre en az 6 karakter olmalı');
       return;
     }
+
+    let birthYearNum: number | undefined = undefined;
+    if (ageInput.trim()) {
+      const val = parseInt(ageInput.trim(), 10);
+      const currentYear = new Date().getFullYear();
+      if (val >= 13 && val <= 100) {
+        birthYearNum = currentYear - val;
+      } else if (val >= 1940 && val <= currentYear - 13) {
+        birthYearNum = val;
+      } else {
+        setError(language === 'en' ? 'Please enter a valid age (18-99)' : 'Lütfen geçerli bir yaş girin (18-99)');
+        return;
+      }
+    }
+
     if (!isAgeConfirmed) {
       setError(language === 'en' ? 'You must confirm that you are at least 18 years old' : 'Uygulamayı kullanmak için 18 yaşından büyük olduğunuzu onaylamalısınız');
       return;
@@ -57,6 +73,7 @@ export default function RegisterScreen() {
       await signup(email.trim(), password, name.trim(), undefined, {
         gender,
         language,
+        birthYear: birthYearNum,
       });
       router.replace('/');
     } catch (e) {
@@ -118,6 +135,33 @@ export default function RegisterScreen() {
             <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
               <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
             </Pressable>
+          </View>
+
+          {/* Age / Birth Year Input */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.text }]}>
+              {language === 'en' ? 'Your Age' : 'Yaşınız'}
+            </Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="calendar-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder={language === 'en' ? 'e.g. 24 (or birth year 2002)' : 'Örn. 24 (veya doğum yılı 2002)'}
+                placeholderTextColor={colors.textMuted}
+                value={ageInput}
+                onChangeText={(val) => {
+                  setAgeInput(val.replace(/[^0-9]/g, ''));
+                  setError('');
+                }}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            </View>
+            <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+              {language === 'en'
+                ? 'Used to personalize cycle, hormonal and fertility guidance for your age.'
+                : 'Döngü ve sağlık önerilerini yaş grubunuza göre kişiselleştirmek için kullanılır.'}
+            </Text>
           </View>
 
           <View style={styles.section}>

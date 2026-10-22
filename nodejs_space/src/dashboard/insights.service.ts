@@ -52,6 +52,11 @@ export class InsightsService {
       items.push(...this.assessmentInsights(assessment, user));
     }
 
+    if (user?.gender !== 'male' && user?.birthYear) {
+      const age = new Date().getFullYear() - user.birthYear;
+      items.push(...this.ageSpecificInsights(age));
+    }
+
     if (user && !user.gender) {
       items.push({
         id: 'profile-gender',
@@ -361,5 +366,50 @@ export class InsightsService {
     }
 
     return out;
+  }
+
+  private ageSpecificInsights(age: number): Insight[] {
+    if (age < 20) {
+      return [{
+        id: 'age-teen-guidance',
+        level: 'tip',
+        module: 'yaşa-özel',
+        title: 'Genç Yaş Döngü Rehberi 🌸',
+        body: 'İlk adet yıllarında vücudun hormon ritmini oturtması zaman alabilir. Adet aralıklarının 21-45 gün arasında olması normal kabul edilir. Bol su, düzenli uyku ve demir yönünden zengin beslenme kendinizi harika hissettirecektir.',
+        reason: 'Yaşınıza (13-19) özel klinik gelişim önerisi.',
+        route: '/tabs/articles',
+      }];
+    }
+    if (age >= 20 && age <= 35) {
+      return [{
+        id: 'age-adult-guidance',
+        level: 'tip',
+        module: 'yaşa-özel',
+        title: '20-35 Yaş: Biyolojik Ritim & Doğurganlık 🌿',
+        body: 'Hormonal dengenizin ve doğurganlığınızın en verimli dönemindesiniz. Ovülasyon günlerinizi takip ederek enerjinizin zirve yaptığı günlerde yoğun aktiviteler planlayabilir, luteal fazda ise magnezyum ağırlıklı beslenerek PMS belirtilerini en aza indirebilirsiniz.',
+        reason: 'Yaş grubunuza (20-35) özel kişiselleştirilmiş rehberlik.',
+        route: '/tabs/articles',
+      }];
+    }
+    if (age >= 36 && age <= 45) {
+      return [{
+        id: 'age-mature-guidance',
+        level: 'tip',
+        module: 'yaşa-özel',
+        title: '36-45 Yaş: Hormonal Farkındalık & Özbakım 🌙',
+        body: '35 yaş sonrasında progesteron seviyelerindeki doğal dalgalanmalar döngü süresinde birkaç günlük kısalma veya uzamalara neden olabilir. Bu evrede D vitamini, omega-3 ve direnç egzersizleri hem kemik yoğunluğunu hem de zihinsel canlılığı korur.',
+        reason: 'Yaş grubunuza (36-45) özel koruyucu sağlık rehberliği.',
+        route: '/tabs/articles',
+      }];
+    }
+    return [{
+      id: 'age-senior-guidance',
+      level: 'tip',
+      module: 'yaşa-özel',
+      title: '45+ Yaş: Canlılık, Kemik & Kalp Sağlığı ✨',
+      body: 'Perimenopoz ve menopoz geçişinde östrojen dalgalanmalarına karşı adaçayı, keten tohumu ve kalsiyum zengini besinler vücudu rahatlatır. Düzenli yürüyüş ve meditasyon uyku kalitenizi artırmaya yardımcı olur.',
+      reason: 'Yaş grubunuza (45+) özel yaşam kalitesi rehberliği.',
+      route: '/tabs/articles',
+    }];
   }
 }
